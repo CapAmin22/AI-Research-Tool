@@ -104,15 +104,14 @@ PUBLIC_TOOLS = [
 ]
 
 async def execute_search_web(query: str) -> str:
-    jina_url = f"https://s.jina.ai/{query}"
-    async with httpx.AsyncClient(timeout=60) as client:
-        try:
-            resp = await client.get(jina_url, headers={"Accept": "application/json"})
-            if resp.status_code == 200:
-                return json.dumps(resp.json())
-            return f"Search failed: {resp.text}"
-        except Exception as e:
-            return f"Search error: {str(e)}"
+    try:
+        from duckduckgo_search import DDGS
+        results = DDGS().text(query, max_results=5)
+        if not results:
+            return "Search failed: No results found."
+        return json.dumps(results)
+    except Exception as e:
+        return f"Search error: {str(e)}"
 
 async def execute_tool_on_vm(tool_name: str, args: dict) -> str:
     settings = get_settings()
@@ -246,7 +245,7 @@ async def chat_public(channel: str, req: ChatRequest):
         final_response_message = call_llm(messages)
         
         return {
-            "reply": final_response_message.content,
+            "reply": final_response_message.content or "The assistant returned empty text after using the tools. Please try again.",
             "data": scraped_data
         }
         
