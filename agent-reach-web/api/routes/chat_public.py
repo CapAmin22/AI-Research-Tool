@@ -179,6 +179,8 @@ async def chat_public(channel: str, req: ChatRequest):
                     max_tokens=4096
                 )
                 response_message = response.choices[0].message
+        elif "rate_limit" in str(e) or "429" in str(e):
+            return {"reply": "The AI is currently experiencing high traffic (Rate Limit Reached). Please try again in a few minutes.", "data": []}
         else:
             raise e
         
@@ -223,4 +225,6 @@ async def chat_public(channel: str, req: ChatRequest):
         }
         
     except Exception as e:
+        if "rate_limit" in str(e) or "429" in str(e):
+            return {"reply": "The AI is currently experiencing high traffic (Rate Limit Reached). Please try again in a few minutes.", "data": []}
         raise HTTPException(status_code=500, detail=str(e))
