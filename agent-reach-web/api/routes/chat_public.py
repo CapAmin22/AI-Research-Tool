@@ -2,7 +2,7 @@ import os
 import json
 import httpx
 import re
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 from groq import Groq
 from openai import OpenAI
@@ -113,10 +113,12 @@ async def execute_search_web(query: str) -> str:
     except Exception as e:
         return f"Search error: {str(e)}"
 
-async def execute_tool_on_vm(tool_name: str, args: dict) -> str:
+async def execute_tool_on_vm(tool_name: str, args: dict, vault_cookies: str = "") -> str:
     settings = get_settings()
     url = f"{settings.vm_host.rstrip('/')}/api/microservice/execute_tool"
     headers = {"x-api-key": settings.vm_api_key}
+    if vault_cookies:
+        headers["x-vault-cookies"] = vault_cookies
     payload = {
         "tool_name": tool_name,
         "args": args
@@ -132,7 +134,8 @@ async def execute_tool_on_vm(tool_name: str, args: dict) -> str:
             return f"Error contacting VM: {str(e)}"
 
 @router.post("/{channel}")
-async def chat_public(channel: str, req: ChatRequest):
+async def chat_public(channel: str, req: ChatRequest, request: Request):
+    vault_cookies = request.headers.get("x-vault-cookies", "")
     if channel not in ["youtube", "read webpage", "rss/atom", "web search"]:
         if channel != "linkedin":
             return {"reply": f"The {channel} agent is not fully implemented yet.", "data": []}
@@ -228,7 +231,11 @@ async def chat_public(channel: str, req: ChatRequest):
             if tool_name == "search_web":
                 tool_output = await execute_search_web(args.get("query", ""))
             else:
-                tool_output = await execute_tool_on_vm(tool_name, args)
+                tool_output = await execute_tool_on_vm(tool_name, args, vault_cookies)
+                
+                # Intercept authentication blockers from the VM
+                if "AUTH_REQUIRED" in tool_output:
+                    return {"auth_required": True, "reply": tool_output, "data": []}
                 
             if len(tool_output) > 10000:
                 tool_output = tool_output[:10000] + "... [TRUNCATED]"

@@ -247,6 +247,11 @@
                     <h4 style="margin-bottom: 0.5rem;">Reddit Cookie</h4>
                     <input type="password" id="set-rdt" placeholder="reddit_session cookie...">
                 </div>
+
+                <div style="margin-top: 1.5rem;">
+                    <h4 style="margin-bottom: 0.5rem;">LinkedIn li_at Cookie</h4>
+                    <input type="password" id="set-li-at" placeholder="li_at cookie...">
+                </div>
                 
                 <div style="margin-top: 2rem;">
                     <button class="action-btn" style="width: 120px;" onclick="saveSettings()">Save All</button>
@@ -392,15 +397,29 @@
                     endpoint = `/api/chat/${encodeURIComponent(currentChatChannel)}`;
                 }
                 
+                const existing_vault = localStorage.getItem('agent_vault') || '{}';
+
                 const res = await fetch(endpoint, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'X-Vault-Cookies': existing_vault
+                    },
                     body: JSON.stringify({ message: msg })
                 });
                 
                 const data = await res.json();
                 document.getElementById(loadingId).remove();
                 
+                if(data.auth_required) {
+                    hist.innerHTML += `<div style="margin: 10px 0; padding: 10px; background: rgba(245, 158, 11, 0.1); border-radius: 8px; border-left: 3px solid #f59e0b;">
+                        <strong>Action Required:</strong> ${data.reply} <br><br>
+                        <button class="action-btn" onclick="switchTab('settings')" style="margin-top: 10px; width: 220px;">Go to Credential Vault</button>
+                    </div>`;
+                    hist.scrollTop = hist.scrollHeight;
+                    return;
+                }
+
                 if(data.reply) {
                     hist.innerHTML += `<div style="margin: 10px 0; padding: 10px; background: rgba(255, 255, 255, 0.05); border-radius: 8px;"><strong>Agent:</strong> ${data.reply}</div>`;
                 }
@@ -421,21 +440,21 @@
         }
 
         // --- Settings Management ---
-        async function loadSettings() {
+        function loadSettings() {
             try {
-                const res = await fetch('/api/settings/');
-                const data = await res.json();
-                if(data.groq_key) document.getElementById('set-groq').placeholder = '******** (Set)';
-                if(data.github_token) document.getElementById('set-gh').placeholder = '******** (Set)';
-                if(data.twitter_auth_token) document.getElementById('set-tw-auth').placeholder = '******** (Set)';
-                if(data.twitter_ct0) document.getElementById('set-tw-ct0').placeholder = '******** (Set)';
-                if(data.reddit_cookie) document.getElementById('set-rdt').placeholder = '******** (Set)';
+                const existing = JSON.parse(localStorage.getItem('agent_vault') || '{}');
+                if(existing.groq_key) document.getElementById('set-groq').placeholder = '******** (Saved in Vault)';
+                if(existing.github_token) document.getElementById('set-gh').placeholder = '******** (Saved in Vault)';
+                if(existing.twitter_auth_token) document.getElementById('set-tw-auth').placeholder = '******** (Saved in Vault)';
+                if(existing.twitter_ct0) document.getElementById('set-tw-ct0').placeholder = '******** (Saved in Vault)';
+                if(existing.reddit_cookie) document.getElementById('set-rdt').placeholder = '******** (Saved in Vault)';
+                if(existing.linkedin_li_at) document.getElementById('set-li-at').placeholder = '******** (Saved in Vault)';
             } catch(e) {}
         }
 
-        async function saveSettings() {
+        function saveSettings() {
             const stat = document.getElementById('settings-status');
-            stat.innerText = 'Saving...';
+            stat.innerText = 'Saving to Local Vault...';
             stat.style.color = 'var(--text-muted)';
             
             const payload = {
@@ -443,32 +462,31 @@
                 github_token: document.getElementById('set-gh').value || null,
                 twitter_auth_token: document.getElementById('set-tw-auth').value || null,
                 twitter_ct0: document.getElementById('set-tw-ct0').value || null,
-                reddit_cookie: document.getElementById('set-rdt').value || null
+                reddit_cookie: document.getElementById('set-rdt').value || null,
+                linkedin_li_at: document.getElementById('set-li-at').value || null
             };
 
             try {
-                const res = await fetch('/api/settings/', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
+                const existing = JSON.parse(localStorage.getItem('agent_vault') || '{}');
+                Object.keys(payload).forEach(k => {
+                    if (payload[k]) existing[k] = payload[k];
                 });
                 
-                if (res.ok) {
-                    stat.innerText = 'Saved Successfully!';
-                    stat.style.color = '#10b981';
-                    document.getElementById('set-groq').value = '';
-                    document.getElementById('set-gh').value = '';
-                    document.getElementById('set-tw-auth').value = '';
-                    document.getElementById('set-tw-ct0').value = '';
-                    document.getElementById('set-rdt').value = '';
-                    loadSettings();
-                    loadDashboard(); // Refresh channel statuses
-                } else {
-                    stat.innerText = 'Error saving';
-                    stat.style.color = '#f43f5e';
-                }
+                localStorage.setItem('agent_vault', JSON.stringify(existing));
+                
+                stat.innerText = 'Saved Securely to Vault!';
+                stat.style.color = '#10b981';
+                
+                document.getElementById('set-groq').value = '';
+                document.getElementById('set-gh').value = '';
+                document.getElementById('set-tw-auth').value = '';
+                document.getElementById('set-tw-ct0').value = '';
+                document.getElementById('set-rdt').value = '';
+                document.getElementById('set-li-at').value = '';
+                
+                loadSettings();
             } catch (e) {
-                stat.innerText = 'Network Error';
+                stat.innerText = 'Browser Storage Error';
                 stat.style.color = '#f43f5e';
             }
         }

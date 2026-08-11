@@ -35,13 +35,27 @@ def run_mcporter(tool_name: str, args: dict) -> str:
         return f"System error calling {tool_name}: {str(e)}"
 
 @router.post("/execute_tool", dependencies=[Depends(verify_api_key)])
-async def execute_tool(req: ToolExecutionRequest):
+async def execute_tool(req: ToolExecutionRequest, x_vault_cookies: str = Header(None, alias="X-Vault-Cookies")):
     tool_name = req.tool_name
     args = req.args
     
+    cookies = {}
+    if x_vault_cookies:
+        try:
+            cookies = json.loads(x_vault_cookies)
+        except:
+            pass
+            
     try:
         if tool_name.startswith("linkedin."):
+            li_at = cookies.get("linkedin_li_at")
+            if not li_at:
+                return {"output": "AUTH_REQUIRED: LinkedIn session cookie (li_at) is missing. Please authenticate."}
+                
+            args["cookie"] = li_at
             output = run_mcporter(tool_name, args)
+            if "unauthorized" in output.lower() or "captcha" in output.lower() or "401" in output:
+                return {"output": "AUTH_REQUIRED: LinkedIn cookie is expired or a CAPTCHA was triggered."}
             return {"output": output}
             
         elif tool_name == "youtube_info":
