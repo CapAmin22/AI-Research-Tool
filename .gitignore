@@ -1,0 +1,7 @@
+SSH*
+*.key
+node_modules/
+.env
+__pycache__/
+*.pyc
+.DS_Store
