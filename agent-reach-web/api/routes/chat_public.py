@@ -133,28 +133,54 @@ async def chat_public(channel: str, req: ChatRequest):
         {"role": "user", "content": req.message}
     ]
     
+    import re
+    
     try:
-        # First attempt
-        try:
-            response = client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
-                messages=messages,
-                tools=PUBLIC_TOOLS,
-                tool_choice="auto",
-                max_tokens=4096
-            )
-        except Exception as e:
-            if "tool_use_failed" in str(e):
-                # Retry once without tools if it completely failed to format the tool call
+        response = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=messages,
+            tools=PUBLIC_TOOLS,
+            tool_choice="auto",
+            max_tokens=4096
+        )
+        response_message = response.choices[0].message
+    except Exception as e:
+        if "tool_use_failed" in str(e):
+            err_str = str(e)
+            # Try to extract the broken XML from the error string
+            # e.g. <function=search_web {"query": "..."} </function>
+            match = re.search(r"<function=(\w+)\s*(\{.*?\})\s*</function>", err_str.replace('\\n', ' '))
+            if match:
+                tool_name = match.group(1)
+                args_json = match.group(2)
+                # Create a mock response_message
+                class MockToolFunction:
+                    def __init__(self, name, arguments):
+                        self.name = name
+                        self.arguments = arguments
+                class MockToolCall:
+                    def __init__(self, id, function):
+                        self.id = id
+                        self.function = function
+                class MockMessage:
+                    def __init__(self, tool_calls):
+                        self.tool_calls = tool_calls
+                        self.content = None
+                        self.role = "assistant"
+                    def model_dump(self, **kwargs):
+                        return {"role": self.role, "content": self.content, "tool_calls": [{"id": tc.id, "type": "function", "function": {"name": tc.function.name, "arguments": tc.function.arguments}} for tc in self.tool_calls]}
+                
+                response_message = MockMessage([MockToolCall("call_mock", MockToolFunction(tool_name, args_json))])
+            else:
+                # Fallback to no-tool response
                 response = client.chat.completions.create(
                     model="llama-3.3-70b-versatile",
                     messages=messages,
                     max_tokens=4096
                 )
-            else:
-                raise e
-        
-        response_message = response.choices[0].message
+                response_message = response.choices[0].message
+        else:
+            raise e
         
         if not response_message.tool_calls:
             return {"reply": response_message.content, "data": None}
