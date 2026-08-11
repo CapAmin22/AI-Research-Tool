@@ -104,18 +104,30 @@ async def chat_public(channel: str, req: ChatRequest):
     client = get_groq_client()
     
     messages = [
-        {"role": "system", "content": f"You are a highly intelligent {channel} Research Assistant. Your primary goal is to fetch real data using your tools and present it to the user in the best possible format. You MUST strictly adhere to the following rules:\n1. Use Markdown tables wherever possible to display data (e.g., stats, comparisons, timestamps).\n2. Use bullet points for takeaways and insights.\n3. Never hallucinate data. If you cannot find the data via tools, explicitly say so.\n4. Be concise but extremely clear and structured in your final output."},
+        {"role": "system", "content": f"You are a highly intelligent {channel} Research Assistant. Your primary goal is to fetch real data using your tools and present it to the user in the best possible format. You MUST strictly adhere to the following rules:\n1. Use Markdown tables wherever possible to display data.\n2. Use bullet points for takeaways.\n3. Never hallucinate data. If you cannot find the data, say so.\n4. To use a tool, use the standard tool calling API. DO NOT output XML tags like <function=...> in your text."},
         {"role": "user", "content": req.message}
     ]
     
     try:
-        response = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=messages,
-            tools=PUBLIC_TOOLS,
-            tool_choice="auto",
-            max_tokens=4096
-        )
+        # First attempt
+        try:
+            response = client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=messages,
+                tools=PUBLIC_TOOLS,
+                tool_choice="auto",
+                max_tokens=4096
+            )
+        except Exception as e:
+            if "tool_use_failed" in str(e):
+                # Retry once without tools if it completely failed to format the tool call
+                response = client.chat.completions.create(
+                    model="llama-3.3-70b-versatile",
+                    messages=messages,
+                    max_tokens=4096
+                )
+            else:
+                raise e
         
         response_message = response.choices[0].message
         
