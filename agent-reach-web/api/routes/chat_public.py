@@ -74,8 +74,33 @@ PUBLIC_TOOLS = [
                 "required": ["url"],
             },
         },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "search_web",
+            "description": "Search the web for current information (e.g. trending videos, news). Always use this instead of read_webpage for dynamic search pages.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "The search query"}
+                },
+                "required": ["query"],
+            },
+        },
     }
 ]
+
+async def execute_search_web(query: str) -> str:
+    jina_url = f"https://s.jina.ai/{query}"
+    async with httpx.AsyncClient(timeout=60) as client:
+        try:
+            resp = await client.get(jina_url, headers={"Accept": "application/json"})
+            if resp.status_code == 200:
+                return json.dumps(resp.json())
+            return f"Search failed: {resp.text}"
+        except Exception as e:
+            return f"Search error: {str(e)}"
 
 async def execute_tool_on_vm(tool_name: str, args: dict) -> str:
     settings = get_settings()
@@ -104,7 +129,7 @@ async def chat_public(channel: str, req: ChatRequest):
     client = get_groq_client()
     
     messages = [
-        {"role": "system", "content": f"You are a highly intelligent {channel} Research Assistant. Your primary goal is to fetch real data using your tools and present it to the user in the best possible format. You MUST strictly adhere to the following rules:\n1. Use Markdown tables wherever possible to display data.\n2. Use bullet points for takeaways.\n3. Never hallucinate data. If you cannot find the data, say so.\n4. To use a tool, use the standard tool calling API. DO NOT output XML tags like <function=...> in your text."},
+        {"role": "system", "content": f"You are a highly intelligent {channel} Research Assistant. Your primary goal is to fetch real data using your tools and present it to the user in the best possible format. You MUST strictly adhere to the following rules:\n1. Use Markdown tables wherever possible to display data.\n2. Use bullet points for takeaways.\n3. Never hallucinate data. If you cannot find the data, say so.\n4. To use a tool, use the standard tool calling API. DO NOT output XML tags like <function=...> in your text.\n5. NEVER use read_webpage for YouTube search or trending pages as they are blocked. Use the search_web tool instead."},
         {"role": "user", "content": req.message}
     ]
     
@@ -141,7 +166,10 @@ async def chat_public(channel: str, req: ChatRequest):
             args = json.loads(tool_call.function.arguments)
             tool_name = tool_call.function.name
             
-            tool_output = await execute_tool_on_vm(tool_name, args)
+            if tool_name == "search_web":
+                tool_output = await execute_search_web(args.get("query", ""))
+            else:
+                tool_output = await execute_tool_on_vm(tool_name, args)
                 
             # Truncate output to avoid exceeding context window limits
             if len(tool_output) > 10000:
