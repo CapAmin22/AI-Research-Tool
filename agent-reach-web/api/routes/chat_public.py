@@ -1,9 +1,11 @@
 import os
 import json
 import httpx
+import re
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from groq import Groq
+from openai import OpenAI
 from api.config import get_settings
 
 router = APIRouter(prefix="/chat", tags=["Chat"])
@@ -17,6 +19,16 @@ def get_groq_client():
     if not api_key:
         raise HTTPException(status_code=400, detail="Groq API key not configured on Vercel.")
     return Groq(api_key=api_key)
+
+def get_nvidia_client():
+    settings = get_settings()
+    api_key = settings.nvidia_api_key or os.environ.get("NVIDIA_API_KEY")
+    if not api_key:
+        return None
+    return OpenAI(
+        base_url="https://integrate.api.nvidia.com/v1",
+        api_key=api_key
+    )
 
 PUBLIC_TOOLS = [
     {
@@ -126,63 +138,83 @@ async def chat_public(channel: str, req: ChatRequest):
         if channel != "linkedin":
             return {"reply": f"The {channel} agent is not fully implemented yet.", "data": []}
             
-    client = get_groq_client()
+    groq_client = get_groq_client()
+    nvidia_client = get_nvidia_client()
     
     messages = [
         {"role": "system", "content": f"You are a highly intelligent {channel} Research Assistant. Your primary goal is to fetch real data using your tools and present it to the user in the best possible format. You MUST strictly adhere to the following rules:\n1. Use Markdown tables wherever possible to display data.\n2. Use bullet points for takeaways.\n3. Never hallucinate data. If you cannot find the data, say so.\n4. To use a tool, use the standard tool calling API. DO NOT output XML tags like <function=...> in your text.\n5. If asked about trending videos or general YouTube searches, you MUST invoke the `search_web` tool immediately to search the web (e.g. 'top trending youtube videos today'). NEVER use `read_webpage` on youtube.com dynamic pages as they are blocked."},
         {"role": "user", "content": req.message}
     ]
     
-    import re
-    
-    try:
-        response = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=messages,
-            tools=PUBLIC_TOOLS,
-            tool_choice="auto",
-            max_tokens=4096
-        )
-        response_message = response.choices[0].message
-    except Exception as e:
-        if "tool_use_failed" in str(e):
-            err_str = str(e)
-            # Try to extract the broken XML from the error string
-            # e.g. <function=search_web {"query": "..."} </function>
-            match = re.search(r"<function=(\w+)\s*(\{.*?\})\s*</function>", err_str.replace('\\n', ' '))
-            if match:
-                tool_name = match.group(1)
-                args_json = match.group(2)
-                # Create a mock response_message
-                class MockToolFunction:
-                    def __init__(self, name, arguments):
-                        self.name = name
-                        self.arguments = arguments
-                class MockToolCall:
-                    def __init__(self, id, function):
-                        self.id = id
-                        self.function = function
-                class MockMessage:
-                    def __init__(self, tool_calls):
-                        self.tool_calls = tool_calls
-                        self.content = None
-                        self.role = "assistant"
-                    def model_dump(self, **kwargs):
-                        return {"role": self.role, "content": self.content, "tool_calls": [{"id": tc.id, "type": "function", "function": {"name": tc.function.name, "arguments": tc.function.arguments}} for tc in self.tool_calls]}
-                
-                response_message = MockMessage([MockToolCall("call_mock", MockToolFunction(tool_name, args_json))])
-            else:
-                # Fallback to no-tool response
-                response = client.chat.completions.create(
-                    model="llama-3.3-70b-versatile",
-                    messages=messages,
+    def call_llm(messages_list):
+        if nvidia_client:
+            try:
+                # We use meta/llama-3.1-70b-instruct on NVIDIA NIM because nemotron-4-340b does not support the OpenAI tool_choice parameter natively yet.
+                response = nvidia_client.chat.completions.create(
+                    model="meta/llama-3.1-70b-instruct",
+                    messages=messages_list,
+                    tools=PUBLIC_TOOLS,
+                    tool_choice="auto",
                     max_tokens=4096
                 )
-                response_message = response.choices[0].message
-        elif "rate_limit" in str(e) or "429" in str(e):
-            return {"reply": "The AI is currently experiencing high traffic (Rate Limit Reached). Please try again in a few minutes.", "data": []}
-        else:
-            raise e
+                return response.choices[0].message
+            except Exception as e:
+                print(f"NVIDIA API Error: {e}, falling back to Groq...")
+                pass
+                
+        # Groq Fallback
+        try:
+            response = groq_client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=messages_list,
+                tools=PUBLIC_TOOLS,
+                tool_choice="auto",
+                max_tokens=4096
+            )
+            return response.choices[0].message
+        except Exception as e:
+            if "tool_use_failed" in str(e):
+                err_str = str(e)
+                match = re.search(r"<function=(\w+)\s*(\{.*?\})\s*</function>", err_str.replace('\\n', ' '))
+                if match:
+                    tool_name = match.group(1)
+                    args_json = match.group(2)
+                    class MockToolFunction:
+                        def __init__(self, name, arguments):
+                            self.name = name
+                            self.arguments = arguments
+                    class MockToolCall:
+                        def __init__(self, id, function):
+                            self.id = id
+                            self.function = function
+                    class MockMessage:
+                        def __init__(self, tool_calls):
+                            self.tool_calls = tool_calls
+                            self.content = None
+                            self.role = "assistant"
+                        def model_dump(self, **kwargs):
+                            return {"role": self.role, "content": self.content, "tool_calls": [{"id": tc.id, "type": "function", "function": {"name": tc.function.name, "arguments": tc.function.arguments}} for tc in self.tool_calls]}
+                    return MockMessage([MockToolCall("call_mock", MockToolFunction(tool_name, args_json))])
+                else:
+                    response = groq_client.chat.completions.create(
+                        model="llama-3.3-70b-versatile",
+                        messages=messages_list,
+                        max_tokens=4096
+                    )
+                    return response.choices[0].message
+            elif "rate_limit" in str(e) or "429" in str(e):
+                class MockMessageRateLimit:
+                    def __init__(self):
+                        self.content = "The AI is currently experiencing high traffic (Rate Limit Reached). Please try again in a few minutes."
+                        self.tool_calls = None
+                    def model_dump(self, **kwargs):
+                        return {"role": "assistant", "content": self.content}
+                return MockMessageRateLimit()
+            else:
+                raise e
+
+    try:
+        response_message = call_llm(messages)
         
         if not response_message.tool_calls:
             return {"reply": response_message.content, "data": None}
@@ -199,7 +231,6 @@ async def chat_public(channel: str, req: ChatRequest):
             else:
                 tool_output = await execute_tool_on_vm(tool_name, args)
                 
-            # Truncate output to avoid exceeding context window limits
             if len(tool_output) > 10000:
                 tool_output = tool_output[:10000] + "... [TRUNCATED]"
                 
@@ -212,15 +243,10 @@ async def chat_public(channel: str, req: ChatRequest):
             
             scraped_data.append({"tool": tool_name, "output": tool_output})
             
-        final_response = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=messages,
-            tools=PUBLIC_TOOLS,
-            max_tokens=4096
-        )
+        final_response_message = call_llm(messages)
         
         return {
-            "reply": final_response.choices[0].message.content,
+            "reply": final_response_message.content,
             "data": scraped_data
         }
         

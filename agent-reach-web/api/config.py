@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     
     # Keys injected by Vercel
     groq_api_key: str | None = None
+    nvidia_api_key: str | None = None
     vm_host: str = "http://130.210.24.167:8000"
     vm_api_key: str = "change-me-to-a-random-string"
 
