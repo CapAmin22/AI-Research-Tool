@@ -6,11 +6,13 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 from openai import OpenAI
 from api.config import get_settings
+from api.routes.chat_linkedin import LINKEDIN_TOOLS
 
 router = APIRouter(prefix="/chat", tags=["Chat"])
 
 class ChatRequest(BaseModel):
     message: str
+    channels: list[str] = []
 
 def get_nvidia_client():
     settings = get_settings()
@@ -139,33 +141,45 @@ async def execute_tool_on_vm(tool_name: str, args: dict, vault_cookies: str = ""
         except Exception as e:
             return f"Error contacting VM: {str(e)}"
 
-@router.post("/{channel}")
-async def chat_public(channel: str, req: ChatRequest, request: Request):
+@router.post("/multi")
+async def chat_multi(req: ChatRequest, request: Request):
     vault_cookies = request.headers.get("x-vault-cookies", "")
     
     # Fully implemented channels
-    ACTIVE_CHANNELS = ["youtube", "read webpage", "rss/atom", "web search", "github", "podcast transcription"]
+    ACTIVE_CHANNELS = ["youtube", "read webpage", "rss/atom", "web search", "github", "podcast transcription", "linkedin"]
     # Social channels — auth required, coming soon
     COMING_SOON_CHANNELS = ["twitter / x", "reddit", "facebook", "instagram"]
     
-    is_default = (channel == "default")
-
-    if channel == "linkedin":
-        pass  # handled by chat_linkedin.py
-    elif channel in COMING_SOON_CHANNELS:
-        return {"reply": f"The **{channel.title()}** research agent is coming soon! Please configure your credentials in the Settings tab to prepare for when it launches.", "data": []}
-    elif channel not in ACTIVE_CHANNELS and not is_default:
-        return {"reply": f"The {channel} agent is not available.", "data": []}
+    # Filter selected channels to only those active
+    selected_channels = [c.lower().strip() for c in req.channels if c.lower().strip() in ACTIVE_CHANNELS]
+    
+    # Dynamic Tools Logic
+    tools_to_use = []
+    
+    if "web search" in selected_channels:
+        tools_to_use.extend([t for t in PUBLIC_TOOLS if t["function"]["name"] == "search_web"])
+    if "youtube" in selected_channels:
+        tools_to_use.extend([t for t in PUBLIC_TOOLS if t["function"]["name"] in ["youtube_info", "youtube_subtitles"]])
+    if "read webpage" in selected_channels:
+        tools_to_use.extend([t for t in PUBLIC_TOOLS if t["function"]["name"] == "read_webpage"])
+    if "rss/atom" in selected_channels:
+        tools_to_use.extend([t for t in PUBLIC_TOOLS if t["function"]["name"] == "read_rss"])
+    if "podcast transcription" in selected_channels:
+        tools_to_use.extend([t for t in PUBLIC_TOOLS if t["function"]["name"] == "podcast_transcribe"])
+    if "linkedin" in selected_channels:
+        tools_to_use.extend(LINKEDIN_TOOLS)
             
     nvidia_client = get_nvidia_client()
     
     # System prompt logic
-    if is_default:
+    if not selected_channels or (len(selected_channels) == 1 and selected_channels[0] == "default"):
         system_content = "You are a highly intelligent, general-purpose AI Research Assistant. You do not have access to live web tools for this query, so answer using your internal knowledge. Format your response cleanly using Markdown."
         tools_to_use = None
     else:
-        system_content = f"You are a highly intelligent {channel} Research Assistant. You must first thoroughly understand the user's request. Then, use your available tools to perform research. Finally, present the results to the user in a format highly appropriate for this specific channel. You MUST strictly adhere to the following rules:\n1. Use Markdown tables wherever possible to display data.\n2. Use bullet points for takeaways.\n3. Never hallucinate data. If you cannot find the data, say so.\n4. To use a tool, use the standard tool calling API. DO NOT output XML tags like <function=...> in your text.\n5. If asked about trending videos or general YouTube searches, you MUST invoke the `search_web` tool immediately to search the web (e.g. 'top trending youtube videos today'). NEVER use `read_webpage` on youtube.com dynamic pages as they are blocked."
-        tools_to_use = PUBLIC_TOOLS
+        channels_str = ", ".join(selected_channels).title()
+        system_content = f"You are a highly intelligent Research Assistant with access to the following specialized domains: {channels_str}. You must first thoroughly understand the user's request. Then, use your available tools to perform research across these domains. Finally, present the results to the user. You MUST strictly adhere to the following rules:\n1. Use Markdown tables wherever possible to display data.\n2. Use bullet points for takeaways.\n3. Never hallucinate data. If you cannot find the data, say so.\n4. To use a tool, use the standard tool calling API. DO NOT output XML tags like <function=...> in your text.\n5. If asked about trending videos or general YouTube searches, you MUST invoke the `search_web` tool immediately to search the web (e.g. 'top trending youtube videos today'). NEVER use `read_webpage` on youtube.com dynamic pages as they are blocked."
+        if len(tools_to_use) == 0:
+            tools_to_use = None
 
     messages = [
         {"role": "system", "content": system_content},
@@ -213,6 +227,9 @@ async def chat_public(channel: str, req: ChatRequest, request: Request):
             
             if tool_name == "search_web":
                 tool_output = await execute_search_web(args.get("query", ""))
+            elif tool_name in ["get_person_profile"]:
+                # LinkedIn tools need the linkedin. prefix for the VM
+                tool_output = await execute_tool_on_vm(f"linkedin.{tool_name}", args, vault_cookies)
             else:
                 tool_output = await execute_tool_on_vm(tool_name, args, vault_cookies)
                 

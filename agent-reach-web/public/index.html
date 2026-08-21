@@ -210,6 +210,10 @@
             align-items: center;
         }
 
+        .multi-select-container {
+            position: relative;
+        }
+
         .channel-selector {
             background: rgba(0,0,0,0.2);
             color: var(--accent);
@@ -219,14 +223,46 @@
             font-weight: bold;
             cursor: pointer;
             outline: none;
-            -webkit-appearance: none;
-            -moz-appearance: none;
-            appearance: none;
+            text-align: left;
+            min-width: 180px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
         
-        .channel-selector option {
+        .multi-select-dropdown {
+            position: absolute;
+            bottom: 100%;
+            left: 0;
             background: var(--bg-sidebar);
-            color: var(--text-primary);
+            border: 1px solid var(--border-subtle);
+            border-radius: 6px;
+            padding: 0.5rem;
+            width: 250px;
+            max-height: 300px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            margin-bottom: 0.5rem;
+            box-shadow: 0 -4px 15px rgba(0,0,0,0.5);
+            z-index: 1000;
+        }
+        .multi-select-dropdown.hidden {
+            display: none;
+        }
+        
+        .multi-select-dropdown label {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            cursor: pointer;
+            padding: 0.4rem;
+            border-radius: 4px;
+        }
+        .multi-select-dropdown label:hover {
+            background: rgba(255,255,255,0.1);
         }
 
         .chat-input {
@@ -339,10 +375,15 @@
             
             <div class="chat-input-container">
                 <div class="input-wrapper">
-                    <select class="channel-selector" id="channel-select">
-                        <option value="default">🟢 Base Assistant (Default)</option>
-                        <!-- Populated dynamically by loadChannelStatuses() -->
-                    </select>
+                    <div class="multi-select-container" id="multi-select-container">
+                        <button class="channel-selector" id="multi-select-btn" onclick="toggleMultiSelect()">
+                            <span id="multi-select-text">🟢 Base Assistant</span>
+                            <span style="font-size: 0.7em;">▼</span>
+                        </button>
+                        <div class="multi-select-dropdown hidden" id="multi-select-dropdown">
+                            <!-- Populated dynamically -->
+                        </div>
+                    </div>
                     
                     <input type="text" class="chat-input" id="chat-input" placeholder="Message Agent Reach..." onkeypress="if(event.key === 'Enter') sendChat()">
                     
@@ -361,6 +402,41 @@
     <script>
         function toggleSidebar() {
             document.getElementById('sidebar').classList.toggle('hidden');
+        }
+
+        function toggleMultiSelect() {
+            document.getElementById('multi-select-dropdown').classList.toggle('hidden');
+        }
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function(e) {
+            const container = document.getElementById('multi-select-container');
+            if (container && !container.contains(e.target)) {
+                document.getElementById('multi-select-dropdown').classList.add('hidden');
+            }
+        });
+
+        // Track selected channels
+        let selectedChannels = [];
+
+        function handleChannelSelect() {
+            const checkboxes = document.querySelectorAll('.multi-select-dropdown input[type="checkbox"]');
+            selectedChannels = [];
+            checkboxes.forEach(cb => {
+                if (cb.checked) selectedChannels.push(cb.value);
+            });
+            
+            const btnText = document.getElementById('multi-select-text');
+            if (selectedChannels.length === 0) {
+                btnText.innerText = '🟢 Base Assistant';
+            } else if (selectedChannels.length === 1) {
+                // Find name
+                let name = selectedChannels[0];
+                Object.keys(CHANNEL_INFO).forEach(k => { if(CHANNEL_INFO[k].val === name) name = CHANNEL_INFO[k].name; });
+                btnText.innerText = name;
+            } else {
+                btnText.innerText = `${selectedChannels.length} Agents Selected`;
+            }
         }
 
         // --- Status and Channels Logic ---
@@ -388,9 +464,8 @@
                 const res = await fetch('/api/status/doctor');
                 const data = await res.json();
                 
-                const selectEl = document.getElementById('channel-select');
-                // Keep the default option
-                selectEl.innerHTML = '<option value="default">🟢 Base Assistant (Default)</option>';
+                const selectEl = document.getElementById('multi-select-dropdown');
+                selectEl.innerHTML = ''; // clear
                 
                 const statusMap = {};
                 data.channels.forEach(ch => {
@@ -409,13 +484,16 @@
                     if (backendStatus === 'ok') icon = '🟢';
                     else if (backendStatus === 'not_installed') icon = '🔴';
                     
-                    selectEl.innerHTML += `<option value="${info.val}">${icon} ${info.name}</option>`;
+                    let isChecked = selectedChannels.includes(info.val) ? 'checked' : '';
+                    selectEl.innerHTML += `<label><input type="checkbox" value="${info.val}" onchange="handleChannelSelect()" ${isChecked}> ${icon} ${info.name}</label>`;
                 });
                 
                 // Add coming soon channels
                 COMING_SOON_CHANNELS.forEach(ch => {
-                    selectEl.innerHTML += `<option value="${ch.val}">🟡 ${ch.name}</option>`;
+                    selectEl.innerHTML += `<label style="opacity: 0.5; cursor: not-allowed;"><input type="checkbox" value="${ch.val}" disabled> 🟡 ${ch.name}</label>`;
                 });
+                
+                handleChannelSelect();
                 
             } catch (e) {
                 console.error("Failed to load channel statuses", e);
@@ -444,7 +522,6 @@
             
             inputEl.value = '';
             const hist = document.getElementById('chat-history');
-            const selectedChannel = document.getElementById('channel-select').value;
             
             // Render user message
             hist.innerHTML += `<div class="message user">${msg}</div>`;
@@ -456,13 +533,8 @@
             hist.scrollTop = hist.scrollHeight;
             
             try {
-                // Determine API endpoint
-                let endpoint = '';
-                if (selectedChannel === 'linkedin') {
-                    endpoint = '/api/chat/linkedin';
-                } else {
-                    endpoint = `/api/chat/${encodeURIComponent(selectedChannel)}`;
-                }
+                // Determine API endpoint - now fully unified in /multi
+                let endpoint = '/api/chat/multi';
                 
                 const existing_vault = localStorage.getItem('agent_vault') || '{}';
 
@@ -472,7 +544,7 @@
                         'Content-Type': 'application/json',
                         'X-Vault-Cookies': existing_vault
                     },
-                    body: JSON.stringify({ message: msg })
+                    body: JSON.stringify({ message: msg, channels: selectedChannels })
                 });
                 
                 const data = await res.json();

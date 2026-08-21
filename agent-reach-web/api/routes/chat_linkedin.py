@@ -75,8 +75,7 @@ async def chat_linkedin(req: ChatRequest):
             tools=LINKEDIN_TOOLS,
             temperature=1,
             top_p=0.95,
-            max_tokens=4096,
-            extra_body={"chat_template_kwargs":{"enable_thinking":True},"reasoning_budget":4096}
+            max_tokens=4096
         )
         
         response_message = response.choices[0].message
@@ -107,8 +106,7 @@ async def chat_linkedin(req: ChatRequest):
             tools=LINKEDIN_TOOLS,
             temperature=1,
             top_p=0.95,
-            max_tokens=4096,
-            extra_body={"chat_template_kwargs":{"enable_thinking":True},"reasoning_budget":4096}
+            max_tokens=4096
         )
         
         return {
