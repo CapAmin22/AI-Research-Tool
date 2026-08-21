@@ -179,8 +179,7 @@ async def chat_public(channel: str, req: ChatRequest, request: Request):
                 "messages": messages_list,
                 "temperature": 1,
                 "top_p": 0.95,
-                "max_tokens": 4096,
-                "extra_body": {"chat_template_kwargs":{"enable_thinking":True},"reasoning_budget":4096}
+                "max_tokens": 4096
             }
             if tools_to_use:
                 kwargs["tools"] = tools_to_use

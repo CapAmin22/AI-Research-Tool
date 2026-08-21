@@ -485,6 +485,8 @@
                 } else if(data.reply) {
                     // Render markdown for the reply
                     agentContent = marked.parse(data.reply);
+                } else if(data.detail) {
+                    agentContent = "Backend Error: " + (typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail));
                 } else {
                     agentContent = "Error: No response from agent.";
                 }
