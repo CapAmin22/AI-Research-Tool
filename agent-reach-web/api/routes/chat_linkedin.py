@@ -13,7 +13,7 @@ class ChatRequest(BaseModel):
 
 def get_nvidia_client():
     settings = get_settings()
-    api_key = settings.nvidia_api_key or os.environ.get("NVIDIA_API_KEY")
+    api_key = settings.nvidia_api_key or os.environ.get("NVIDIA_API_KEY") or os.environ.get("NVIDIA_API_KEY2")
     if not api_key:
         raise HTTPException(status_code=400, detail="NVIDIA API key not configured on Vercel.")
     return OpenAI(
