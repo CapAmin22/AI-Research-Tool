@@ -3,7 +3,7 @@ import json
 import subprocess
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from groq import Groq
+from openai import OpenAI
 from config import get_settings
 
 router = APIRouter(prefix="/api/chat", tags=["Chat"])
@@ -11,22 +11,15 @@ router = APIRouter(prefix="/api/chat", tags=["Chat"])
 class ChatRequest(BaseModel):
     message: str
 
-def get_groq_client():
+def get_nvidia_client():
     settings = get_settings()
-    api_key = settings.groq_api_key
-    # Try to load from agent-reach config if not in env
+    api_key = settings.nvidia_api_key or os.environ.get("NVIDIA_API_KEY")
     if not api_key:
-        try:
-            with open(os.path.expanduser("~/.agent-reach/config.json"), "r") as f:
-                data = json.load(f)
-                api_key = data.get("groq-key") or data.get("groq_key")
-        except:
-            pass
-            
-    if not api_key:
-        raise HTTPException(status_code=400, detail="Groq API key not configured. Please add it in Settings.")
-        
-    return Groq(api_key=api_key)
+        raise HTTPException(status_code=400, detail="NVIDIA API key not configured on Vercel.")
+    return OpenAI(
+        base_url="https://integrate.api.nvidia.com/v1",
+        api_key=api_key
+    )
 
 LINKEDIN_TOOLS = [
     {
@@ -67,20 +60,22 @@ def run_mcporter(tool_name: str, args: dict) -> str:
 
 @router.post("/linkedin")
 async def chat_linkedin(req: ChatRequest):
-    client = get_groq_client()
+    client = get_nvidia_client()
     
     messages = [
-        {"role": "system", "content": "You are a highly intelligent LinkedIn Research Assistant. You can scrape profiles using your tools. Always be concise and provide actionable insights. Do not hallucinate data; if you need to know about someone, use the get_person_profile tool."},
+        {"role": "system", "content": "You are a highly intelligent LinkedIn Research Assistant. You must first thoroughly understand the user's request. Then, use your available tools to perform research. Finally, present the results to the user in a format highly appropriate for this specific channel. Always be concise and provide actionable insights. Do not hallucinate data; if you need to know about someone, use the get_person_profile tool."},
         {"role": "user", "content": req.message}
     ]
     
     try:
         response = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model="nvidia/nemotron-3-ultra-550b-a55b",
             messages=messages,
             tools=LINKEDIN_TOOLS,
-            tool_choice="auto",
-            max_tokens=4096
+            temperature=1,
+            top_p=0.95,
+            max_tokens=4096,
+            extra_body={"chat_template_kwargs":{"enable_thinking":True},"reasoning_budget":4096}
         )
         
         response_message = response.choices[0].message
@@ -109,10 +104,13 @@ async def chat_linkedin(req: ChatRequest):
                 
         # Send back to LLM for final response
         final_response = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model="nvidia/nemotron-3-ultra-550b-a55b",
             messages=messages,
             tools=LINKEDIN_TOOLS,
-            max_tokens=4096
+            temperature=1,
+            top_p=0.95,
+            max_tokens=4096,
+            extra_body={"chat_template_kwargs":{"enable_thinking":True},"reasoning_budget":4096}
         )
         
         return {

@@ -4,7 +4,6 @@ import httpx
 import re
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
-from groq import Groq
 from openai import OpenAI
 from api.config import get_settings
 
@@ -13,18 +12,11 @@ router = APIRouter(prefix="/chat", tags=["Chat"])
 class ChatRequest(BaseModel):
     message: str
 
-def get_groq_client():
-    settings = get_settings()
-    api_key = settings.groq_api_key or os.environ.get("GROQ_API_KEY")
-    if not api_key:
-        raise HTTPException(status_code=400, detail="Groq API key not configured on Vercel.")
-    return Groq(api_key=api_key)
-
 def get_nvidia_client():
     settings = get_settings()
     api_key = settings.nvidia_api_key or os.environ.get("NVIDIA_API_KEY")
     if not api_key:
-        return None
+        raise HTTPException(status_code=400, detail="NVIDIA API key not configured on Vercel.")
     return OpenAI(
         base_url="https://integrate.api.nvidia.com/v1",
         api_key=api_key
@@ -140,71 +132,27 @@ async def chat_public(channel: str, req: ChatRequest, request: Request):
         if channel != "linkedin":
             return {"reply": f"The {channel} agent is not fully implemented yet.", "data": []}
             
-    groq_client = get_groq_client()
     nvidia_client = get_nvidia_client()
     
     messages = [
-        {"role": "system", "content": f"You are a highly intelligent {channel} Research Assistant. Your primary goal is to fetch real data using your tools and present it to the user in the best possible format. You MUST strictly adhere to the following rules:\n1. Use Markdown tables wherever possible to display data.\n2. Use bullet points for takeaways.\n3. Never hallucinate data. If you cannot find the data, say so.\n4. To use a tool, use the standard tool calling API. DO NOT output XML tags like <function=...> in your text.\n5. If asked about trending videos or general YouTube searches, you MUST invoke the `search_web` tool immediately to search the web (e.g. 'top trending youtube videos today'). NEVER use `read_webpage` on youtube.com dynamic pages as they are blocked."},
+        {"role": "system", "content": f"You are a highly intelligent {channel} Research Assistant. You must first thoroughly understand the user's request. Then, use your available tools to perform research. Finally, present the results to the user in a format highly appropriate for this specific channel. You MUST strictly adhere to the following rules:\n1. Use Markdown tables wherever possible to display data.\n2. Use bullet points for takeaways.\n3. Never hallucinate data. If you cannot find the data, say so.\n4. To use a tool, use the standard tool calling API. DO NOT output XML tags like <function=...> in your text.\n5. If asked about trending videos or general YouTube searches, you MUST invoke the `search_web` tool immediately to search the web (e.g. 'top trending youtube videos today'). NEVER use `read_webpage` on youtube.com dynamic pages as they are blocked."},
         {"role": "user", "content": req.message}
     ]
     
     def call_llm(messages_list):
-        if nvidia_client:
-            try:
-                # We use meta/llama-3.1-70b-instruct on NVIDIA NIM because nemotron-4-340b does not support the OpenAI tool_choice parameter natively yet.
-                response = nvidia_client.chat.completions.create(
-                    model="meta/llama-3.1-70b-instruct",
-                    messages=messages_list,
-                    tools=PUBLIC_TOOLS,
-                    tool_choice="auto",
-                    max_tokens=4096
-                )
-                return response.choices[0].message
-            except Exception as e:
-                print(f"NVIDIA API Error: {e}, falling back to Groq...")
-                pass
-                
-        # Groq Fallback
         try:
-            response = groq_client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
+            response = nvidia_client.chat.completions.create(
+                model="nvidia/nemotron-3-ultra-550b-a55b",
                 messages=messages_list,
                 tools=PUBLIC_TOOLS,
-                tool_choice="auto",
-                max_tokens=4096
+                temperature=1,
+                top_p=0.95,
+                max_tokens=4096,
+                extra_body={"chat_template_kwargs":{"enable_thinking":True},"reasoning_budget":4096}
             )
             return response.choices[0].message
         except Exception as e:
-            if "tool_use_failed" in str(e):
-                err_str = str(e)
-                match = re.search(r"<function=(\w+)\s*(\{.*?\})\s*</function>", err_str.replace('\\n', ' '))
-                if match:
-                    tool_name = match.group(1)
-                    args_json = match.group(2)
-                    class MockToolFunction:
-                        def __init__(self, name, arguments):
-                            self.name = name
-                            self.arguments = arguments
-                    class MockToolCall:
-                        def __init__(self, id, function):
-                            self.id = id
-                            self.function = function
-                    class MockMessage:
-                        def __init__(self, tool_calls):
-                            self.tool_calls = tool_calls
-                            self.content = None
-                            self.role = "assistant"
-                        def model_dump(self, **kwargs):
-                            return {"role": self.role, "content": self.content, "tool_calls": [{"id": tc.id, "type": "function", "function": {"name": tc.function.name, "arguments": tc.function.arguments}} for tc in self.tool_calls]}
-                    return MockMessage([MockToolCall("call_mock", MockToolFunction(tool_name, args_json))])
-                else:
-                    response = groq_client.chat.completions.create(
-                        model="llama-3.3-70b-versatile",
-                        messages=messages_list,
-                        max_tokens=4096
-                    )
-                    return response.choices[0].message
-            elif "rate_limit" in str(e) or "429" in str(e):
+            if "rate_limit" in str(e) or "429" in str(e):
                 class MockMessageRateLimit:
                     def __init__(self):
                         self.content = "The AI is currently experiencing high traffic (Rate Limit Reached). Please try again in a few minutes."

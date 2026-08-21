@@ -35,6 +35,7 @@ class Settings(BaseSettings):
     agent_reach_bin: str = ""
     command_timeout: int = Field(default=120, ge=5, le=600)
     groq_api_key: str | None = None
+    nvidia_api_key: str | None = None
 
     model_config = {
         "env_file": str(Path(__file__).resolve().parent / ".env"),

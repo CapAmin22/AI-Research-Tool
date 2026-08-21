@@ -3,7 +3,7 @@ import json
 import subprocess
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from groq import Groq
+from openai import OpenAI
 from config import get_settings
 from services import agent_reach
 
@@ -12,19 +12,15 @@ router = APIRouter(prefix="/api/chat", tags=["Chat"])
 class ChatRequest(BaseModel):
     message: str
 
-def get_groq_client():
+def get_nvidia_client():
     settings = get_settings()
-    api_key = settings.groq_api_key
+    api_key = settings.nvidia_api_key or os.environ.get("NVIDIA_API_KEY")
     if not api_key:
-        try:
-            with open(os.path.expanduser("~/.agent-reach/config.json"), "r") as f:
-                data = json.load(f)
-                api_key = data.get("groq-key") or data.get("groq_key")
-        except:
-            pass
-    if not api_key:
-        raise HTTPException(status_code=400, detail="Groq API key not configured. Please add it in Settings.")
-    return Groq(api_key=api_key)
+        raise HTTPException(status_code=400, detail="NVIDIA API key not configured on VM.")
+    return OpenAI(
+        base_url="https://integrate.api.nvidia.com/v1",
+        api_key=api_key
+    )
 
 PUBLIC_TOOLS = [
     {
@@ -93,20 +89,22 @@ async def chat_public(channel: str, req: ChatRequest):
         if channel != "linkedin":
             return {"reply": f"The {channel} agent is not fully implemented yet.", "data": []}
             
-    client = get_groq_client()
+    client = get_nvidia_client()
     
     messages = [
-        {"role": "system", "content": f"You are a highly intelligent {channel} Research Assistant. You can scrape data using your tools. Always be concise and provide actionable insights. Do not hallucinate data; use your tools to fetch real information."},
+        {"role": "system", "content": f"You are a highly intelligent {channel} Research Assistant. You must first thoroughly understand the user's request. Then, use your available tools to perform research. Finally, present the results to the user in a format highly appropriate for this specific channel. You MUST strictly adhere to the following rules:\n1. Use Markdown tables wherever possible to display data.\n2. Use bullet points for takeaways.\n3. Never hallucinate data. If you cannot find the data, say so.\n4. To use a tool, use the standard tool calling API. DO NOT output XML tags like <function=...> in your text."},
         {"role": "user", "content": req.message}
     ]
     
     try:
         response = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model="nvidia/nemotron-3-ultra-550b-a55b",
             messages=messages,
             tools=PUBLIC_TOOLS,
-            tool_choice="auto",
-            max_tokens=4096
+            temperature=1,
+            top_p=0.95,
+            max_tokens=4096,
+            extra_body={"chat_template_kwargs":{"enable_thinking":True},"reasoning_budget":4096}
         )
         
         response_message = response.choices[0].message
@@ -151,10 +149,13 @@ async def chat_public(channel: str, req: ChatRequest):
             scraped_data.append({"tool": tool_name, "output": tool_output})
             
         final_response = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model="nvidia/nemotron-3-ultra-550b-a55b",
             messages=messages,
             tools=PUBLIC_TOOLS,
-            max_tokens=4096
+            temperature=1,
+            top_p=0.95,
+            max_tokens=4096,
+            extra_body={"chat_template_kwargs":{"enable_thinking":True},"reasoning_budget":4096}
         )
         
         return {
