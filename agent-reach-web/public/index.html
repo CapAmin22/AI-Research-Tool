@@ -299,20 +299,19 @@
         }
 
         const CHANNEL_INFO = {
-            'github':                { name: 'GitHub Agent',                val: 'github' },
-            'youtube':               { name: 'YouTube Agent',               val: 'youtube' },
             'web search':            { name: 'Web Search Agent',            val: 'web search' },
-            'read webpage':          { name: 'Read Webpage Agent',          val: 'read webpage' },
+            'youtube':               { name: 'YouTube Agent',               val: 'youtube' },
             'rss/atom':              { name: 'RSS / Atom Agent',            val: 'rss/atom' },
-            'podcast transcription': { name: 'Podcast Transcription',       val: 'podcast transcription' },
-            'linkedin':              { name: 'LinkedIn Agent',              val: 'linkedin' }
+            'read webpage':          { name: 'Read Webpage Agent',          val: 'read webpage' },
+            'linkedin':              { name: 'LinkedIn Agent',              val: 'linkedin' },
+            'reddit':                { name: 'Reddit Agent',                val: 'reddit' },
+            'twitter / x':           { name: 'Twitter / X Agent',           val: 'twitter / x' },
+            'instagram':             { name: 'Instagram Agent',             val: 'instagram' },
+            'facebook':              { name: 'Facebook Agent',              val: 'facebook' },
+            'github':                { name: 'GitHub Agent',                val: 'github' },
+            'podcast transcription': { name: 'Podcast Transcription',       val: 'podcast transcription' }
         };
-        const COMING_SOON_CHANNELS = [
-            { name: 'Twitter / X (Soon)', val: 'twitter / x' },
-            { name: 'Reddit (Soon)', val: 'reddit' },
-            { name: 'Facebook (Soon)', val: 'facebook' },
-            { name: 'Instagram (Soon)', val: 'instagram' }
-        ];
+
         const HIDDEN_CHANNELS = new Set(['v2ex','bilibili','xiaohongshu','xueqiu','xiaoyuzhou podcast','v2ex forum','xueqiu finance']);
 
         async function loadChannelStatuses() {
@@ -331,9 +330,6 @@
                     const icon = st === 'ok' ? '🟢' : '🔴';
                     const chk = selectedChannels.includes(info.val) ? 'checked' : '';
                     el.innerHTML += `<label><input type="checkbox" value="${info.val}" onchange="handleChannelSelect()" ${chk}> ${icon} ${info.name}</label>`;
-                });
-                COMING_SOON_CHANNELS.forEach(ch => {
-                    el.innerHTML += `<label style="opacity:0.45;cursor:not-allowed;"><input type="checkbox" value="${ch.val}" disabled> 🟡 ${ch.name}</label>`;
                 });
                 handleChannelSelect();
             } catch (e) { console.error("Failed to load channel statuses", e); }

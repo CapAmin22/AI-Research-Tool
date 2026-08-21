@@ -145,38 +145,66 @@ async def execute_tool_on_vm(tool_name: str, args: dict, vault_cookies: str = ""
 async def chat_multi(req: ChatRequest, request: Request):
     vault_cookies = request.headers.get("x-vault-cookies", "")
     
-    # Fully implemented channels
-    ACTIVE_CHANNELS = ["youtube", "read webpage", "rss/atom", "web search", "github", "podcast transcription", "linkedin"]
-    # Social channels — auth required, coming soon
-    COMING_SOON_CHANNELS = ["twitter / x", "reddit", "facebook", "instagram"]
+    # ALL channels are now active — social channels route through search_web with site-specific queries
+    ALL_CHANNELS = [
+        "youtube", "read webpage", "rss/atom", "web search", "github",
+        "podcast transcription", "linkedin",
+        "twitter / x", "reddit", "facebook", "instagram"
+    ]
     
-    # Filter selected channels to only those active
-    selected_channels = [c.lower().strip() for c in req.channels if c.lower().strip() in ACTIVE_CHANNELS]
+    # Filter selected channels
+    selected_channels = [c.lower().strip() for c in req.channels if c.lower().strip() in ALL_CHANNELS]
     
-    # Dynamic Tools Logic
+    # ── Dynamic Tools Logic ──
+    # search_web and read_webpage are ALWAYS available as universal research tools
+    tool_names_added = set()
     tools_to_use = []
     
-    if "web search" in selected_channels:
-        tools_to_use.extend([t for t in PUBLIC_TOOLS if t["function"]["name"] == "search_web"])
+    def add_tool(name):
+        if name not in tool_names_added:
+            for t in PUBLIC_TOOLS:
+                if t["function"]["name"] == name:
+                    tools_to_use.append(t)
+                    tool_names_added.add(name)
+                    break
+    
+    # Universal tools — always present when any agent is selected
+    if selected_channels:
+        add_tool("search_web")
+        add_tool("read_webpage")
+    
+    # Channel-specific tools
     if "youtube" in selected_channels:
-        tools_to_use.extend([t for t in PUBLIC_TOOLS if t["function"]["name"] in ["youtube_info", "youtube_subtitles"]])
-    if "read webpage" in selected_channels:
-        tools_to_use.extend([t for t in PUBLIC_TOOLS if t["function"]["name"] == "read_webpage"])
+        add_tool("youtube_info")
+        add_tool("youtube_subtitles")
     if "rss/atom" in selected_channels:
-        tools_to_use.extend([t for t in PUBLIC_TOOLS if t["function"]["name"] == "read_rss"])
+        add_tool("read_rss")
     if "podcast transcription" in selected_channels:
-        tools_to_use.extend([t for t in PUBLIC_TOOLS if t["function"]["name"] == "podcast_transcribe"])
+        add_tool("podcast_transcribe")
     if "linkedin" in selected_channels:
         tools_to_use.extend(LINKEDIN_TOOLS)
+    # twitter, reddit, facebook, instagram → all handled via search_web with site: queries (see system prompt)
             
     nvidia_client = get_nvidia_client()
     
-    # System prompt logic
-    if not selected_channels or (len(selected_channels) == 1 and selected_channels[0] == "default"):
+    # ── System prompt logic ──
+    if not selected_channels:
         system_content = "You are a highly intelligent, general-purpose AI Research Assistant. You do not have access to live web tools for this query, so answer using your internal knowledge. Format your response cleanly using Markdown."
         tools_to_use = None
     else:
         channels_str = ", ".join(selected_channels).title()
+        
+        # Build platform-specific instructions for social channels
+        social_instructions = ""
+        if "reddit" in selected_channels:
+            social_instructions += "\n\nREDDIT RESEARCH: Use `search_web` with queries like 'site:reddit.com <topic>' to find Reddit discussions, threads, and community opinions. Use `read_webpage` to read specific Reddit thread URLs for deeper context."
+        if "twitter / x" in selected_channels:
+            social_instructions += "\n\nTWITTER/X RESEARCH: Use `search_web` with queries like 'site:x.com <topic>' or 'site:twitter.com <topic>' to find tweets, threads, and trending discussions. Include the tweet author handle and date."
+        if "instagram" in selected_channels:
+            social_instructions += "\n\nINSTAGRAM RESEARCH: Use `search_web` with queries like 'site:instagram.com <topic>' to find public Instagram posts and profiles. Note: Instagram content is limited to public profiles."
+        if "facebook" in selected_channels:
+            social_instructions += "\n\nFACEBOOK RESEARCH: Use `search_web` with queries like 'site:facebook.com <topic>' to find public Facebook posts, pages, and groups."
+        
         system_content = f"""You are a highly intelligent Research Assistant with access to the following specialized domains: {channels_str}. You must first thoroughly understand the user's request. Then, use your available tools to perform research across these domains. Finally, present the results to the user.
 
 You MUST strictly adhere to the following rules:
@@ -184,22 +212,29 @@ You MUST strictly adhere to the following rules:
 2. Use bullet points for takeaways.
 3. Never hallucinate data. If you cannot find the data, say so.
 4. To use a tool, use the standard tool calling API. DO NOT output XML tags like <function=...> in your text.
-5. If asked about trending videos or general YouTube searches, you MUST invoke the `search_web` tool immediately to search the web (e.g. 'top trending youtube videos today'). NEVER use `read_webpage` on youtube.com dynamic pages as they are blocked.
+5. If asked about trending videos or general YouTube searches, you MUST invoke the `search_web` tool immediately.
+6. EVERY fact or news item you present MUST include a verifiable source URL. Use `read_webpage` to verify and extract details from URLs found via `search_web`.
+
+DEEP RESEARCH WORKFLOW:
+When performing research, follow this workflow:
+Step 1: Use `search_web` to find relevant results with verifiable URLs.
+Step 2: Use `read_webpage` on the most relevant URLs to extract full article content and verify facts.
+Step 3: Synthesize the verified information into a well-structured response with clickable source links.
 
 NEWS & RESEARCH SOURCING GUIDELINES:
-When asked for news or current events, you MUST gather information from the widest possible range of credible sources. Do NOT rely on a single source.
-- For India: Source from Times of India, NDTV, The Hindu, Indian Express, Hindustan Times, Economic Times, Mint, Business Standard, and state-level outlets (e.g. Deccan Herald, Telegraph India, Mathrubhumi, Dainik Bhaskar) as appropriate to the query context.
-- For USA: Source from AP News, Reuters, CNN, NYT, Washington Post, Fox News, NPR, Bloomberg, WSJ, and local outlets if relevant.
-- For UK: BBC, The Guardian, The Telegraph, Sky News, Financial Times, Reuters.
-- For Global/International: Reuters, AP, BBC World, Al Jazeera, France24, DW News.
-- For Technology: TechCrunch, The Verge, Ars Technica, Wired, Hacker News.
-- For Business/Finance: Bloomberg, Reuters, CNBC, Financial Times, Mint, Economic Times.
+When asked for news or current events, gather information from the widest possible range of credible sources:
+- For India: Times of India, NDTV, The Hindu, Indian Express, Hindustan Times, Economic Times, Mint, Business Standard, Deccan Herald.
+- For USA: AP News, Reuters, CNN, NYT, Washington Post, Fox News, NPR, Bloomberg, WSJ.
+- For UK: BBC, The Guardian, The Telegraph, Sky News, Financial Times.
+- For Global: Reuters, AP, BBC World, Al Jazeera, France24, DW News.
+- For Technology: TechCrunch, The Verge, Ars Technica, Wired.
+- For Business/Finance: Bloomberg, Reuters, CNBC, Financial Times.
 
-When using the `search_web` tool for news, make MULTIPLE search queries to triangulate coverage. For example, if asked for "top 10 news in India", issue at least 2-3 separate search queries like "India top news today", "India breaking news today", "India latest headlines" to gather comprehensive results from different providers. Then synthesize the results into a unified, well-structured response with source attribution.
+When using `search_web` for news, make MULTIPLE search queries to triangulate coverage. Then synthesize with source attribution and verifiable links.
 
-When using `read_rss`, try multiple RSS feed URLs from different providers to ensure broad coverage. If one feed returns a 403 error, immediately try another provider's feed URL.
+When using `read_rss`, if a feed returns a 403 error, immediately fall back to `search_web` to find the same information.
 
-ALWAYS include the source name and publication time alongside each news item."""
+ALWAYS include the source name, publication time, and a clickable URL alongside each item.{social_instructions}"""
         if len(tools_to_use) == 0:
             tools_to_use = None
 
