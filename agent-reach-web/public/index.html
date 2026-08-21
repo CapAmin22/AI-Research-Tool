@@ -248,7 +248,7 @@
             <div class="chat-history" id="chat-history">
                 <div class="msg-row agent-row">
                     <div class="msg-content-agent">
-                        <p>Hello! I'm your <strong>AI Research Assistant</strong>. Select agent channels from the dropdown below, or leave it on <strong>Base Assistant</strong> for general answers.</p>
+                        <p>Hello! I'm your <strong>AI Research Assistant</strong>. By default, I will search the web, read pages, and parse news to answer your questions. Select special agents below, or toggle <strong>Strict No-Web Chat</strong> for pure LLM answers.</p>
                     </div>
                 </div>
             </div>
@@ -257,7 +257,7 @@
                 <div class="input-area">
                     <div class="multi-select-container" id="multi-select-container">
                         <button class="channel-btn" id="multi-select-btn" onclick="toggleMultiSelect()">
-                            <span id="multi-select-text">Base Assistant</span>
+                            <span id="multi-select-text">Web Researcher</span>
                             <span style="font-size:0.65em;">&#9660;</span>
                         </button>
                         <div class="multi-select-dropdown hidden" id="multi-select-dropdown"></div>
@@ -291,7 +291,7 @@
             cbs.forEach(cb => { if (cb.checked) selectedChannels.push(cb.value); });
 
             const t = document.getElementById('multi-select-text');
-            if (selectedChannels.length === 0) { t.innerText = 'Base Assistant'; }
+            if (selectedChannels.length === 0) { t.innerText = 'Web Researcher'; }
             else if (selectedChannels.length === 1) {
                 let n = selectedChannels[0];
                 Object.keys(CHANNEL_INFO).forEach(k => { if (CHANNEL_INFO[k].val === n) n = CHANNEL_INFO[k].name; });
@@ -300,11 +300,9 @@
         }
 
         const CHANNEL_INFO = {
-            'web search':            { name: 'Web Search Agent',            val: 'web search' },
-            'youtube':               { name: 'YouTube Agent',               val: 'youtube' },
-            'rss/atom':              { name: 'RSS / Atom Agent',            val: 'rss/atom' },
-            'read webpage':          { name: 'Read Webpage Agent',          val: 'read webpage' },
+            'no-web chat':           { name: 'Strict No-Web Chat',          val: 'no-web chat' },
             'linkedin':              { name: 'LinkedIn Agent',              val: 'linkedin' },
+            'youtube':               { name: 'YouTube Agent',               val: 'youtube' },
             'reddit':                { name: 'Reddit Agent',                val: 'reddit' },
             'twitter / x':           { name: 'Twitter / X Agent',           val: 'twitter / x' },
             'instagram':             { name: 'Instagram Agent',             val: 'instagram' },
@@ -325,13 +323,15 @@
                 data.channels.forEach(ch => { sm[(ch.name||'').toLowerCase().trim()] = ch.status; });
 
                 // Agents that run on Vercel (always available — no VM dependency)
-                const VERCEL_NATIVE = new Set(['web search', 'read webpage', 'rss/atom', 'reddit', 'twitter / x', 'instagram', 'facebook']);
+                const VERCEL_NATIVE = new Set(['no-web chat', 'reddit', 'twitter / x', 'instagram', 'facebook']);
 
                 Object.keys(CHANNEL_INFO).forEach(key => {
                     if (HIDDEN_CHANNELS.has(key)) return;
                     const info = CHANNEL_INFO[key];
                     let icon;
-                    if (VERCEL_NATIVE.has(key)) {
+                    if (key === 'no-web chat') {
+                        icon = '🚫';
+                    } else if (VERCEL_NATIVE.has(key)) {
                         icon = '🟢'; // Always available via Vercel search_web
                     } else {
                         const st = sm[key] || 'ok';

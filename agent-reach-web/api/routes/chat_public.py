@@ -182,16 +182,15 @@ async def chat_multi(req: ChatRequest, request: Request):
     
     # ALL channels are now active — social channels route through search_web with site-specific queries
     ALL_CHANNELS = [
-        "youtube", "read webpage", "rss/atom", "web search", "github",
-        "podcast transcription", "linkedin",
-        "twitter / x", "reddit", "facebook", "instagram"
+        "youtube", "github", "podcast transcription", "linkedin",
+        "twitter / x", "reddit", "facebook", "instagram", "no-web chat"
     ]
     
     # Filter selected channels
     selected_channels = [c.lower().strip() for c in req.channels if c.lower().strip() in ALL_CHANNELS]
+    no_web = "no-web chat" in selected_channels
     
     # ── Dynamic Tools Logic ──
-    # search_web and read_webpage are ALWAYS available as universal research tools
     tool_names_added = set()
     tools_to_use = []
     
@@ -203,34 +202,34 @@ async def chat_multi(req: ChatRequest, request: Request):
                     tool_names_added.add(name)
                     break
     
-    # Universal tools — always present when any agent is selected
-    if selected_channels:
+    # Universal Base Tools — always present UNLESS no-web chat is selected
+    if not no_web:
         add_tool("search_web")
         add_tool("read_webpage")
+        add_tool("read_rss")
     
     # Channel-specific tools
-    if "youtube" in selected_channels:
+    if "youtube" in selected_channels and not no_web:
         add_tool("youtube_info")
         add_tool("youtube_subtitles")
-    if "rss/atom" in selected_channels:
-        add_tool("read_rss")
-    if "podcast transcription" in selected_channels:
+    if "podcast transcription" in selected_channels and not no_web:
         add_tool("podcast_transcribe")
     if "linkedin" in selected_channels:
         tools_to_use.extend(LINKEDIN_TOOLS)
-    # twitter, reddit, facebook, instagram → all handled via search_web with site: queries (see system prompt)
+    # twitter, reddit, facebook, instagram → all handled via search_web with site: queries
             
     nvidia_client = get_nvidia_client()
     
     # ── System prompt logic ──
-    if not selected_channels:
-        system_content = "You are a highly intelligent, general-purpose AI Research Assistant. You do not have access to live web tools for this query, so answer using your internal knowledge. Format your response cleanly using Markdown."
+    if no_web:
+        system_content = "You are a highly intelligent, general-purpose AI Assistant. You are currently in 'Strict No-Web Chat' mode and do not have access to live web tools. Answer using your internal knowledge. Format your response cleanly using Markdown."
         tools_to_use = None
     else:
-        channels_str = ", ".join(selected_channels).title()
-        
         # Build platform-specific instructions for social channels
         social_instructions = ""
+        special_channels = [c.title() for c in selected_channels if c != "no-web chat"]
+        channels_str = ", ".join(special_channels) if special_channels else "Web Search, Reading, and RSS"
+        
         if "reddit" in selected_channels:
             social_instructions += "\n\nREDDIT RESEARCH: Use `search_web` with queries like 'site:reddit.com <topic>' to find Reddit discussions, threads, and community opinions. Use `read_webpage` to read specific Reddit thread URLs for deeper context."
         if "twitter / x" in selected_channels:
