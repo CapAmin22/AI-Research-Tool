@@ -237,12 +237,12 @@ async def chat_multi(req: ChatRequest, request: Request):
             "type": "function",
             "function": {
                 "name": "save_to_memory",
-                "description": "Save an important fact about the user or a core piece of researched information to long-term memory so you can recall it in future conversations.",
+                "description": "CRITICAL: You MUST use this tool to save important research findings (like prices, stats, dates) or user preferences to your long-term memory. This allows you to remember them across different chat sessions.",
                 "parameters": {
                     "type": "object",
                     "properties": {
-                        "fact": {"type": "string", "description": "The specific fact to remember."},
-                        "category": {"type": "string", "description": "Category of the fact (e.g., 'User Preference', 'Startup Info')"}
+                        "fact": {"type": "string", "description": "The specific fact, price, or data point to remember."},
+                        "category": {"type": "string", "description": "Category (e.g., 'Commodity Price', 'Startup Info', 'Preference')"}
                     },
                     "required": ["fact"]
                 }
@@ -264,11 +264,11 @@ async def chat_multi(req: ChatRequest, request: Request):
     
     # ── System prompt logic ──
     if no_web:
-        system_content = "You are a highly intelligent, general-purpose AI Assistant. You are currently in 'Strict No-Web Chat' mode and do not have access to live web tools. Answer using your internal knowledge. Format your response cleanly using Markdown."
+        system_content = "You are a highly intelligent AI. You have access to long-term memory. DO NOT say you cannot remember past interactions; if you do not see past memories in your prompt, just say you haven't saved any yet. Answer using your internal knowledge."
         tools_to_use = None
     else:
         # Default system prompt
-        system_content = "You are a highly intelligent, general-purpose AI Research Assistant. You have access to various tools to search the web, read pages, parse news, and browse social media platforms. Use these tools to gather information before answering. Be thorough and analytical. Format your response cleanly using Markdown."
+        system_content = "You are a highly intelligent AI Research Assistant. You have a long-term memory system. DO NOT say you cannot remember past interactions; if relevant memories exist, they will be provided to you. You MUST proactively use the `save_to_memory` tool to store important facts like prices or stats that the user might ask about later."
         
         # Try to fetch dynamic prompt from DB
         if supabase:
@@ -279,6 +279,9 @@ async def chat_multi(req: ChatRequest, request: Request):
             except Exception as e:
                 print(f"Failed to fetch system prompt: {e}")
                 
+        # Force memory instructions
+        system_content += "\n\nCRITICAL DIRECTIVE: You have a long-term memory system via the `save_to_memory` tool. DO NOT say you cannot remember past interactions; if relevant memories exist, they are provided to you. You MUST proactively use the `save_to_memory` tool to store important facts like prices, startup stats, or user preferences that might be asked about later."
+        
         # Build platform-specific instructions for social channels
         social_instructions = ""
         special_channels = [c.title() for c in selected_channels if c != "no-web chat"]
