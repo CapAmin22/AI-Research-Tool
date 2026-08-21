@@ -186,7 +186,7 @@ async def chat_multi(req: ChatRequest, request: Request):
         {"role": "user", "content": req.message}
     ]
     
-    def call_llm(messages_list):
+    def call_llm(messages_list, disable_tools=False):
         try:
             kwargs = {
                 "model": "nvidia/nemotron-3-ultra-550b-a55b",
@@ -195,7 +195,7 @@ async def chat_multi(req: ChatRequest, request: Request):
                 "top_p": 0.95,
                 "max_tokens": 4096
             }
-            if tools_to_use:
+            if tools_to_use and not disable_tools:
                 kwargs["tools"] = tools_to_use
                 
             response = nvidia_client.chat.completions.create(**kwargs)
@@ -213,46 +213,57 @@ async def chat_multi(req: ChatRequest, request: Request):
                 raise e
 
     try:
-        response_message = call_llm(messages)
-        
-        if not response_message.tool_calls:
-            return {"reply": response_message.content, "data": None}
-            
         scraped_data = []
-        messages.append(response_message.model_dump(exclude_unset=True))
+        max_iterations = 3
         
-        for tool_call in response_message.tool_calls:
-            args = json.loads(tool_call.function.arguments)
-            tool_name = tool_call.function.name
+        for iteration in range(max_iterations):
+            # On the last iteration, disable tools to force a final text answer
+            disable_tools = (iteration == max_iterations - 1)
+            response_message = call_llm(messages, disable_tools=disable_tools)
             
-            if tool_name == "search_web":
-                tool_output = await execute_search_web(args.get("query", ""))
-            elif tool_name in ["get_person_profile"]:
-                # LinkedIn tools need the linkedin. prefix for the VM
-                tool_output = await execute_tool_on_vm(f"linkedin.{tool_name}", args, vault_cookies)
-            else:
-                tool_output = await execute_tool_on_vm(tool_name, args, vault_cookies)
+            if not response_message.tool_calls:
+                # Agent provided a text response
+                return {
+                    "reply": response_message.content or "The assistant returned empty text after attempting to answer. Please try again.",
+                    "data": scraped_data if scraped_data else None
+                }
                 
-                # Intercept authentication blockers from the VM
-                if "AUTH_REQUIRED" in tool_output:
-                    return {"auth_required": True, "reply": tool_output, "data": []}
-                
-            if len(tool_output) > 10000:
-                tool_output = tool_output[:10000] + "... [TRUNCATED]"
-                
-            messages.append({
-                "role": "tool",
-                "tool_call_id": tool_call.id,
-                "name": tool_name,
-                "content": tool_output
-            })
+            messages.append(response_message.model_dump(exclude_unset=True))
             
-            scraped_data.append({"tool": tool_name, "output": tool_output})
-            
-        final_response_message = call_llm(messages)
-        
+            for tool_call in response_message.tool_calls:
+                args = {}
+                try:
+                    args = json.loads(tool_call.function.arguments)
+                except:
+                    pass
+                
+                tool_name = tool_call.function.name
+                
+                if tool_name == "search_web":
+                    tool_output = await execute_search_web(args.get("query", ""))
+                elif tool_name in ["get_person_profile"]:
+                    tool_output = await execute_tool_on_vm(f"linkedin.{tool_name}", args, vault_cookies)
+                else:
+                    tool_output = await execute_tool_on_vm(tool_name, args, vault_cookies)
+                    
+                    if "AUTH_REQUIRED" in tool_output:
+                        return {"auth_required": True, "reply": tool_output, "data": scraped_data}
+                    
+                if len(tool_output) > 10000:
+                    tool_output = tool_output[:10000] + "... [TRUNCATED]"
+                    
+                messages.append({
+                    "role": "tool",
+                    "tool_call_id": tool_call.id,
+                    "name": tool_name,
+                    "content": tool_output
+                })
+                
+                scraped_data.append({"tool": tool_name, "output": tool_output})
+                
+        # Fallback if loop exits (though it shouldn't because disable_tools=True on last iteration)
         return {
-            "reply": final_response_message.content or "The assistant returned empty text after using the tools. Please try again.",
+            "reply": "The assistant reached the maximum number of tool execution steps.",
             "data": scraped_data
         }
         
