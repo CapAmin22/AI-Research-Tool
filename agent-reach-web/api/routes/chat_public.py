@@ -219,12 +219,19 @@ async def chat_multi(req: ChatRequest, request: Request):
         for iteration in range(max_iterations):
             # On the last iteration, disable tools to force a final text answer
             disable_tools = (iteration == max_iterations - 1)
+            
+            if disable_tools:
+                messages.append({
+                    "role": "system",
+                    "content": "You have exhausted your tool call attempts. You MUST provide a final text summary to the user now based on the data gathered. Do NOT attempt to use tools."
+                })
+                
             response_message = call_llm(messages, disable_tools=disable_tools)
             
-            if not response_message.tool_calls:
-                # Agent provided a text response
+            if disable_tools or not response_message.tool_calls:
+                # Agent provided a text response, or we forced it to stop
                 return {
-                    "reply": response_message.content or "The assistant returned empty text after attempting to answer. Please try again.",
+                    "reply": response_message.content or "The assistant reached the maximum tool attempts but returned empty text. Please view the raw data below.",
                     "data": scraped_data if scraped_data else None
                 }
                 
