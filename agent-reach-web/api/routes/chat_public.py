@@ -148,31 +148,44 @@ async def chat_public(channel: str, req: ChatRequest, request: Request):
     # Social channels — auth required, coming soon
     COMING_SOON_CHANNELS = ["twitter / x", "reddit", "facebook", "instagram"]
     
+    is_default = (channel == "default")
+
     if channel == "linkedin":
         pass  # handled by chat_linkedin.py
     elif channel in COMING_SOON_CHANNELS:
         return {"reply": f"The **{channel.title()}** research agent is coming soon! Please configure your credentials in the Settings tab to prepare for when it launches.", "data": []}
-    elif channel not in ACTIVE_CHANNELS:
+    elif channel not in ACTIVE_CHANNELS and not is_default:
         return {"reply": f"The {channel} agent is not available.", "data": []}
             
     nvidia_client = get_nvidia_client()
     
+    # System prompt logic
+    if is_default:
+        system_content = "You are a highly intelligent, general-purpose AI Research Assistant. You do not have access to live web tools for this query, so answer using your internal knowledge. Format your response cleanly using Markdown."
+        tools_to_use = None
+    else:
+        system_content = f"You are a highly intelligent {channel} Research Assistant. You must first thoroughly understand the user's request. Then, use your available tools to perform research. Finally, present the results to the user in a format highly appropriate for this specific channel. You MUST strictly adhere to the following rules:\n1. Use Markdown tables wherever possible to display data.\n2. Use bullet points for takeaways.\n3. Never hallucinate data. If you cannot find the data, say so.\n4. To use a tool, use the standard tool calling API. DO NOT output XML tags like <function=...> in your text.\n5. If asked about trending videos or general YouTube searches, you MUST invoke the `search_web` tool immediately to search the web (e.g. 'top trending youtube videos today'). NEVER use `read_webpage` on youtube.com dynamic pages as they are blocked."
+        tools_to_use = PUBLIC_TOOLS
+
     messages = [
-        {"role": "system", "content": f"You are a highly intelligent {channel} Research Assistant. You must first thoroughly understand the user's request. Then, use your available tools to perform research. Finally, present the results to the user in a format highly appropriate for this specific channel. You MUST strictly adhere to the following rules:\n1. Use Markdown tables wherever possible to display data.\n2. Use bullet points for takeaways.\n3. Never hallucinate data. If you cannot find the data, say so.\n4. To use a tool, use the standard tool calling API. DO NOT output XML tags like <function=...> in your text.\n5. If asked about trending videos or general YouTube searches, you MUST invoke the `search_web` tool immediately to search the web (e.g. 'top trending youtube videos today'). NEVER use `read_webpage` on youtube.com dynamic pages as they are blocked."},
+        {"role": "system", "content": system_content},
         {"role": "user", "content": req.message}
     ]
     
     def call_llm(messages_list):
         try:
-            response = nvidia_client.chat.completions.create(
-                model="nvidia/nemotron-3-ultra-550b-a55b",
-                messages=messages_list,
-                tools=PUBLIC_TOOLS,
-                temperature=1,
-                top_p=0.95,
-                max_tokens=4096,
-                extra_body={"chat_template_kwargs":{"enable_thinking":True},"reasoning_budget":4096}
-            )
+            kwargs = {
+                "model": "nvidia/nemotron-3-ultra-550b-a55b",
+                "messages": messages_list,
+                "temperature": 1,
+                "top_p": 0.95,
+                "max_tokens": 4096,
+                "extra_body": {"chat_template_kwargs":{"enable_thinking":True},"reasoning_budget":4096}
+            }
+            if tools_to_use:
+                kwargs["tools"] = tools_to_use
+                
+            response = nvidia_client.chat.completions.create(**kwargs)
             return response.choices[0].message
         except Exception as e:
             if "rate_limit" in str(e) or "429" in str(e):

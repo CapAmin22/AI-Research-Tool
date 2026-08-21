@@ -6,12 +6,15 @@
     <title>Agent Reach Web Console</title>
     <style>
         :root {
-            --bg-primary: #0a0e1a;
-            --bg-card: rgba(17, 24, 39, 0.65);
-            --border-subtle: rgba(255, 255, 255, 0.06);
-            --text-primary: #f1f5f9;
-            --text-muted: #64748b;
-            --accent: #06b6d4;
+            --bg-primary: #0f111a;
+            --bg-sidebar: #1a1d2d;
+            --bg-card: rgba(30, 41, 59, 0.7);
+            --border-subtle: rgba(255, 255, 255, 0.1);
+            --text-primary: #f8fafc;
+            --text-muted: #94a3b8;
+            --accent: #38bdf8;
+            --user-bubble: #1e3a8a;
+            --agent-bubble: #1e293b;
             --font-sans: system-ui, -apple-system, sans-serif;
         }
 
@@ -22,268 +25,346 @@
             margin: 0;
             padding: 0;
             line-height: 1.6;
-        }
-
-        .container {
-            max-width: 900px;
-            margin: 0 auto;
-            padding: 2rem 1.5rem;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
         }
 
         header {
-            padding: 1rem 1.5rem;
+            padding: 0.75rem 1.5rem;
             border-bottom: 1px solid var(--border-subtle);
-            background: rgba(10, 14, 26, 0.85);
+            background: var(--bg-sidebar);
             display: flex;
             justify-content: space-between;
             align-items: center;
+            z-index: 100;
         }
 
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .hamburger {
+            background: none;
+            border: none;
+            color: var(--text-primary);
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+        }
+        .hamburger:hover { background: rgba(255,255,255,0.1); }
+
         .logo { font-weight: bold; font-size: 1.2rem; }
+        
         .status-dot {
             display: inline-block;
             width: 10px; height: 10px;
             border-radius: 50%;
-            background-color: #64748b; /* default loading */
+            background-color: #64748b;
             margin-right: 8px;
         }
         .status-dot.online { background-color: #10b981; }
         .status-dot.offline { background-color: #f43f5e; }
 
-        .tabs { margin-bottom: 2rem; display: flex; gap: 1rem; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.5rem; }
-        .tab { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 1rem; font-weight: 500; padding: 0.5rem; }
-        .tab.active { color: var(--text-primary); border-bottom: 2px solid var(--accent); }
-
-        .card {
-            background: var(--bg-card);
-            border: 1px solid var(--border-subtle);
-            border-radius: 12px;
-            padding: 1.5rem;
-            margin-bottom: 1.5rem;
+        .app-container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
         }
 
-        .card-title { margin-top: 0; margin-bottom: 1rem; font-size: 1.1rem; }
+        /* Sidebar */
+        .sidebar {
+            width: 300px;
+            background: var(--bg-sidebar);
+            border-right: 1px solid var(--border-subtle);
+            overflow-y: auto;
+            transition: transform 0.3s ease, width 0.3s ease;
+            display: flex;
+            flex-direction: column;
+        }
+        .sidebar.hidden {
+            width: 0;
+            border-right: none;
+            overflow: hidden;
+        }
+        
+        .sidebar-content {
+            padding: 1.5rem;
+            min-width: 260px;
+        }
 
-        input {
-            width: calc(100% - 100px);
-            padding: 0.75rem;
-            background: rgba(255,255,255,0.05);
+        /* Settings UI in Sidebar */
+        .settings-title { font-size: 1.1rem; font-weight: bold; margin-bottom: 1rem; }
+        .settings-group { margin-bottom: 1.2rem; }
+        .settings-group h4 { margin: 0 0 0.4rem 0; font-size: 0.85rem; color: var(--text-muted); }
+        .settings-group input {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 0.5rem;
+            background: rgba(0,0,0,0.2);
             border: 1px solid var(--border-subtle);
             color: white;
-            border-radius: 6px;
-            margin-right: 10px;
+            border-radius: 4px;
+            font-size: 0.85rem;
         }
-        button.action-btn {
-            padding: 0.75rem 1rem;
+
+        .action-btn {
+            padding: 0.5rem 1rem;
             background: var(--accent);
-            color: black;
+            color: #0f111a;
             border: none;
-            border-radius: 6px;
+            border-radius: 4px;
             cursor: pointer;
             font-weight: bold;
-            width: 80px;
+            font-size: 0.9rem;
         }
-        button.action-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .action-btn:hover { filter: brightness(1.1); }
 
-        .result-box {
-            margin-top: 1rem;
-            padding: 1rem;
+        /* Main Chat Area */
+        .main-chat {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: var(--bg-primary);
+        }
+
+        .chat-history {
+            flex: 1;
+            overflow-y: auto;
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .message {
+            max-width: 80%;
+            padding: 1rem 1.2rem;
+            border-radius: 12px;
+            line-height: 1.5;
+        }
+        .message.user {
+            background: var(--user-bubble);
+            align-self: flex-end;
+            border-bottom-right-radius: 2px;
+        }
+        .message.agent {
+            background: var(--agent-bubble);
+            align-self: flex-start;
+            border-bottom-left-radius: 2px;
+            border: 1px solid var(--border-subtle);
+        }
+
+        /* Markdown tables in agent message */
+        .message table { border-collapse: collapse; width: 100%; margin-top: 1rem; }
+        .message th, .message td { border: 1px solid var(--border-subtle); padding: 0.5rem; text-align: left; }
+        .message th { background: rgba(255,255,255,0.05); }
+
+        /* Collapsible tool data */
+        details.tool-data {
             background: rgba(0,0,0,0.3);
             border: 1px solid var(--border-subtle);
-            border-radius: 6px;
+            border-radius: 8px;
+            margin-top: 1rem;
+            padding: 0.5rem;
+        }
+        details.tool-data summary {
+            cursor: pointer;
+            font-weight: bold;
+            color: var(--accent);
+            outline: none;
+            font-size: 0.9rem;
+        }
+        details.tool-data .raw-output {
+            margin-top: 0.5rem;
+            padding-top: 0.5rem;
+            border-top: 1px solid var(--border-subtle);
             font-family: monospace;
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             white-space: pre-wrap;
             word-break: break-all;
-            max-height: 400px;
+            color: var(--text-muted);
+            max-height: 300px;
             overflow-y: auto;
-            display: none;
         }
 
-        /* Dashboard Grid */
-        .channel-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; }
-        .channel-item { background: rgba(255,255,255,0.03); padding: 1rem; border-radius: 8px; border: 1px solid var(--border-subtle); }
-        .channel-name { font-weight: bold; margin-bottom: 0.5rem; }
-        
-        .badge { font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; float: right; font-weight: bold; }
-        .badge.ok { background: rgba(16, 185, 129, 0.2); color: #10b981; }
-        .badge.warn { background: rgba(245, 158, 11, 0.2); color: #f59e0b; }
-        .badge.error { background: rgba(244, 63, 94, 0.2); color: #f43f5e; }
+        .chat-input-container {
+            padding: 1.5rem;
+            background: var(--bg-primary);
+            border-top: 1px solid var(--border-subtle);
+        }
 
-        .view-section { display: none; }
-        .view-section.active { display: block; }
+        .input-wrapper {
+            max-width: 800px;
+            margin: 0 auto;
+            display: flex;
+            gap: 0.5rem;
+            background: var(--bg-card);
+            padding: 0.5rem;
+            border-radius: 8px;
+            border: 1px solid var(--border-subtle);
+            align-items: center;
+        }
+
+        .channel-selector {
+            background: rgba(0,0,0,0.2);
+            color: var(--accent);
+            border: 1px solid var(--border-subtle);
+            padding: 0.6rem;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            outline: none;
+        }
+
+        .chat-input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: white;
+            padding: 0.6rem;
+            font-size: 1rem;
+            outline: none;
+        }
+
+        .send-btn {
+            background: var(--accent);
+            color: #0f111a;
+            border: none;
+            width: 40px;
+            height: 40px;
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .send-btn:hover { filter: brightness(1.1); }
+        .send-btn svg { width: 20px; height: 20px; fill: currentColor; }
+
+        .loading-dots {
+            display: inline-block;
+        }
+        .loading-dots::after {
+            content: '.';
+            animation: dots 1.5s steps(5, end) infinite;
+        }
+        @keyframes dots {
+            0%, 20% { color: rgba(0,0,0,0); text-shadow: .25em 0 0 rgba(0,0,0,0), .5em 0 0 rgba(0,0,0,0); }
+            40% { color: inherit; text-shadow: .25em 0 0 rgba(0,0,0,0), .5em 0 0 rgba(0,0,0,0); }
+            60% { text-shadow: .25em 0 0 inherit, .5em 0 0 rgba(0,0,0,0); }
+            80%, 100% { text-shadow: .25em 0 0 inherit, .5em 0 0 inherit; }
+        }
+
     </style>
 </head>
 <body>
 
     <header>
-        <div class="logo">Agent Reach</div>
+        <div class="header-left">
+            <button class="hamburger" onclick="toggleSidebar()">☰</button>
+            <div class="logo">Agent Reach</div>
+        </div>
         <div>
             <span class="status-dot" id="server-status"></span>
             <span id="server-text" style="font-size: 0.85rem; color: var(--text-muted);">Checking...</span>
         </div>
     </header>
 
-    <div class="container">
+    <div class="app-container">
         
-        <div class="tabs">
-            <button class="tab active" onclick="switchTab('dashboard')">Dashboard</button>
-            <button class="tab" onclick="switchTab('tools')">Tools</button>
-            <button class="tab" onclick="switchTab('settings')">Settings</button>
-        </div>
-
-        <!-- Dashboard View -->
-        <div id="view-dashboard" class="view-section active">
-            <div class="card">
-                <h3 class="card-title">Research Channels <button onclick="loadDashboard()" style="float: right; background:none; border:1px solid var(--border-subtle); color:white; border-radius:4px; cursor:pointer; padding: 2px 8px;">Refresh</button></h3>
-                <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0; margin-bottom: 1rem;">Each channel is a data source you can use for research. Click any channel to open its AI research agent.</p>
-                <div id="dashboard-loading" style="color: var(--text-muted);">Checking channel availability...</div>
-                <div class="channel-grid" id="channel-grid"></div>
-            </div>
-        </div>
-
-        <!-- Channel Chatbot View -->
-        <div id="view-chat" class="view-section">
-            <button onclick="switchTab('dashboard')" style="background:none; border:none; color:var(--accent); cursor:pointer; margin-bottom: 1rem;">← Back to Dashboard</button>
-            <div style="display: flex; gap: 1rem; height: 600px;">
-                <!-- Chat Panel -->
-                <div class="card" style="flex: 1; display: flex; flex-direction: column; margin-bottom: 0;">
-                    <h3 class="card-title" id="chat-title">LinkedIn Agent</h3>
-                    <div id="chat-history" style="flex: 1; overflow-y: auto; margin-bottom: 1rem; border: 1px solid var(--border-subtle); border-radius: 8px; padding: 1rem; background: rgba(0,0,0,0.2);">
-                        <div style="color: var(--text-muted);">I am your specialized agent. What would you like to research?</div>
-                    </div>
-                    <div style="display: flex;">
-                        <input type="text" id="chat-input" placeholder="E.g., Find the profile for williamhgates..." style="flex: 1;" onkeypress="if(event.key === 'Enter') sendChat()">
-                        <button class="action-btn" onclick="sendChat()" id="chat-send-btn">Send</button>
-                    </div>
-                </div>
+        <!-- Sidebar (Vault/Settings) -->
+        <aside class="sidebar hidden" id="sidebar">
+            <div class="sidebar-content">
+                <div class="settings-title">Vault Credentials</div>
+                <p style="color: var(--text-muted); font-size: 0.8rem; margin-top: 0;">Store credentials to enable human authentication for agents.</p>
                 
-                <!-- Data Panel -->
-                <div class="card" style="flex: 1; display: flex; flex-direction: column; margin-bottom: 0;">
-                    <h3 class="card-title">Research Data</h3>
-                    <div id="chat-data" style="flex: 1; overflow-y: auto; border: 1px solid var(--border-subtle); border-radius: 8px; padding: 1rem; background: rgba(0,0,0,0.2); font-family: monospace; font-size: 0.85rem; white-space: pre-wrap; word-break: break-all;">
-                        <div style="color: var(--text-muted);">Raw data fetched by the agent will appear here as it runs its tools.</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Tools View -->
-        <div id="view-tools" class="view-section">
-            
-            <div class="card">
-                <h3 class="card-title">🔍 Web Search</h3>
-                <div>
-                    <input type="text" id="web-q" placeholder="Search query...">
-                    <button class="action-btn" onclick="runTool('web', '/api/tools/web/search?q=', 'web-q')">Search</button>
-                </div>
-                <div class="result-box" id="res-web"></div>
-            </div>
-
-            <div class="card">
-                <h3 class="card-title">🌐 Read Webpage</h3>
-                <div>
-                    <input type="text" id="read-url" placeholder="Paste full URL...">
-                    <button class="action-btn" onclick="runTool('read', '/api/tools/web/read?url=', 'read-url')">Read</button>
-                </div>
-                <div class="result-box" id="res-read"></div>
-            </div>
-
-            <div class="card">
-                <h3 class="card-title">🐙 GitHub Search</h3>
-                <div>
-                    <input type="text" id="gh-q" placeholder="Search repos...">
-                    <button class="action-btn" onclick="runTool('gh', '/api/tools/github/search?q=', 'gh-q')">Search</button>
-                </div>
-                <div class="result-box" id="res-gh"></div>
-            </div>
-
-            <div class="card">
-                <h3 class="card-title">📺 YouTube Info</h3>
-                <div>
-                    <input type="text" id="yt-url" placeholder="YouTube URL...">
-                    <button class="action-btn" onclick="runTool('yt', '/api/tools/youtube/info?url=', 'yt-url')">Fetch</button>
-                </div>
-                <div class="result-box" id="res-yt"></div>
-            </div>
-
-            <div class="card">
-                <h3 class="card-title">📡 RSS Reader</h3>
-                <div>
-                    <input type="text" id="rss-url" placeholder="RSS Feed URL...">
-                    <button class="action-btn" onclick="runTool('rss', '/api/tools/rss/read?url=', 'rss-url')">Read</button>
-                </div>
-                <div class="result-box" id="res-rss"></div>
-            </div>
-
-        </div>
-
-        <!-- Settings View -->
-        <div id="view-settings" class="view-section">
-            <div class="card">
-                <h3 class="card-title">Authentication & Settings</h3>
-                <p style="color: var(--text-muted); font-size: 0.9rem;">Configure your keys and cookies here. Once saved, they are stored securely on your server.</p>
-                
-                <div style="margin-top: 1.5rem;">
-                    <h4 style="margin-bottom: 0.5rem;">NVIDIA API Key (Powers AI Research Agents)</h4>
+                <div class="settings-group">
+                    <h4>NVIDIA API Key</h4>
                     <input type="password" id="set-groq" placeholder="nvapi-...">
                 </div>
-
-                <div style="margin-top: 1.5rem;">
-                    <h4 style="margin-bottom: 0.5rem;">GitHub Personal Access Token</h4>
+                <div class="settings-group">
+                    <h4>GitHub Token</h4>
                     <input type="password" id="set-gh" placeholder="ghp_...">
                 </div>
-                
-                <div style="margin-top: 1.5rem;">
-                    <h4 style="margin-bottom: 0.5rem;">Twitter/X Auth Token</h4>
+                <div class="settings-group">
+                    <h4>Twitter/X Auth Token</h4>
                     <input type="password" id="set-tw-auth" placeholder="auth_token cookie...">
                 </div>
-
-                <div style="margin-top: 1.5rem;">
-                    <h4 style="margin-bottom: 0.5rem;">Twitter/X CT0</h4>
+                <div class="settings-group">
+                    <h4>Twitter/X CT0</h4>
                     <input type="password" id="set-tw-ct0" placeholder="ct0 cookie...">
                 </div>
-
-                <div style="margin-top: 1.5rem;">
-                    <h4 style="margin-bottom: 0.5rem;">Reddit Cookie</h4>
+                <div class="settings-group">
+                    <h4>Reddit Cookie</h4>
                     <input type="password" id="set-rdt" placeholder="reddit_session cookie...">
                 </div>
-
-                <div style="margin-top: 1.5rem;">
-                    <h4 style="margin-bottom: 0.5rem;">LinkedIn li_at Cookie</h4>
+                <div class="settings-group">
+                    <h4>LinkedIn li_at Cookie</h4>
                     <input type="password" id="set-li-at" placeholder="li_at cookie...">
                 </div>
                 
-                <div style="margin-top: 2rem;">
-                    <button class="action-btn" style="width: 120px;" onclick="saveSettings()">Save All</button>
-                    <span id="settings-status" style="margin-left: 10px; font-weight: bold;"></span>
-                </div>
-                <div style="margin-top: 1.5rem; padding: 1rem; background: rgba(255,255,255,0.05); border-radius: 8px; border: 1px solid var(--border-subtle);">
-                    <h4 style="margin-top: 0; margin-bottom: 0.5rem; color: #60a5fa;">🔵 LinkedIn Headless Auth (Profile Sync)</h4>
-                    <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">
-                        Since this dashboard runs on a headless server, you must generate the LinkedIn login profile on your local Windows PC.<br>
-                        1. Open Windows PowerShell and run: <code>uvx mcp-server-linkedin@latest --login</code><br>
-                        2. A browser will open. Log into LinkedIn.<br>
-                        3. Go to <code>C:\Users\YourName\.linkedin-mcp\</code> and ZIP the <code>profile</code> folder.<br>
-                        4. Upload that ZIP file here to sync your session.
-                    </p>
-                    <input type="file" id="li-file" accept=".zip" style="width: auto; padding: 0.5rem; border: none;">
-                    <button class="action-btn" style="width: 120px;" onclick="uploadLinkedIn()">Upload ZIP</button>
-                    <span id="li-upload-status" style="margin-left: 10px; font-weight: bold; font-size: 0.85rem;"></span>
+                <div style="margin-top: 1.5rem;">
+                    <button class="action-btn" style="width: 100%;" onclick="saveSettings()">Save Credentials</button>
+                    <div id="settings-status" style="margin-top: 8px; font-weight: bold; font-size: 0.85rem; text-align: center;"></div>
                 </div>
 
+                <hr style="border-color: var(--border-subtle); margin: 2rem 0;">
+                
+                <div class="settings-title" style="font-size: 0.95rem; color: #60a5fa;">LinkedIn Profile Sync</div>
+                <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 1rem;">
+                    Upload the zipped <code>.linkedin-mcp/profile</code> folder generated via <code>uvx mcp-server-linkedin@latest --login</code> on your local PC.
+                </p>
+                <input type="file" id="li-file" accept=".zip" style="width: 100%; padding: 0.5rem; background: rgba(0,0,0,0.2); border: 1px solid var(--border-subtle); border-radius: 4px; font-size: 0.8rem; margin-bottom: 10px;">
+                <button class="action-btn" style="width: 100%; font-size: 0.85rem; background: #60a5fa;" onclick="uploadLinkedIn()">Sync Profile ZIP</button>
+                <div id="li-upload-status" style="margin-top: 8px; font-weight: bold; font-size: 0.85rem; text-align: center;"></div>
             </div>
-        </div>
+        </aside>
 
+        <!-- Main Chat Interface -->
+        <main class="main-chat">
+            <div class="chat-history" id="chat-history">
+                <div class="message agent">
+                    Hello! I am your AI Research Assistant. Select an agent channel from the dropdown below or leave it on "Base Assistant" for general LLM answers.
+                </div>
+            </div>
+            
+            <div class="chat-input-container">
+                <div class="input-wrapper">
+                    <select class="channel-selector" id="channel-select">
+                        <option value="default">Base Assistant (Default)</option>
+                        <option value="web search">Web Search Agent</option>
+                        <option value="youtube">YouTube Agent</option>
+                        <option value="read webpage">Read Webpage Agent</option>
+                        <option value="rss/atom">RSS / Atom Agent</option>
+                        <option value="podcast transcription">Podcast Transcription Agent</option>
+                        <option value="github">GitHub Agent</option>
+                        <option value="linkedin">LinkedIn Agent</option>
+                        <option value="twitter / x">Twitter / X Agent (Soon)</option>
+                        <option value="reddit">Reddit Agent (Soon)</option>
+                    </select>
+                    
+                    <input type="text" class="chat-input" id="chat-input" placeholder="Message Agent Reach..." onkeypress="if(event.key === 'Enter') sendChat()">
+                    
+                    <button class="send-btn" onclick="sendChat()">
+                        <svg viewBox="0 0 24 24"><path d="M2,21L23,12L2,3V10L17,12L2,14V21Z" /></svg>
+                    </button>
+                </div>
+            </div>
+        </main>
+        
     </div>
 
+    <!-- Include marked.js for markdown rendering -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
     <script>
-        // --- Navigation ---
-        function switchTab(tabId) {
-            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-            document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
-            event.target.classList.add('active');
-            document.getElementById('view-' + tabId).classList.add('active');
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('hidden');
         }
 
         // --- Health Check ---
@@ -300,111 +381,7 @@
             }
         }
 
-        // --- Channel Info Map (Global English Channels Only) ---
-        const CHANNEL_INFO = {
-            'github':                { name: 'GitHub',                 desc: 'Search repositories, code, and developer profiles.',                use: 'Research open-source projects and codebases' },
-            'youtube':               { name: 'YouTube',                desc: 'Fetch video metadata, transcripts, and subtitles.',                 use: 'Analyze video content and extract insights' },
-            'web search':            { name: 'Web Search',             desc: 'Search the internet for any topic in real time.',                   use: 'Find articles, news, and general information' },
-            'read webpage':          { name: 'Read Webpage',           desc: 'Read and extract text content from any public URL.',                use: 'Scrape and summarize web page content' },
-            'rss/atom':              { name: 'RSS / Atom',             desc: 'Read blog and news feeds from any RSS source.',                     use: 'Monitor publications and track updates' },
-            'podcast transcription': { name: 'Podcast Transcription',  desc: 'Transcribe podcast episodes into searchable text.',                 use: 'Convert audio content to searchable research notes' },
-            'linkedin':              { name: 'LinkedIn',               desc: 'Look up professional profiles and career data.',                    use: 'Research people, companies, and job markets' },
-            'twitter / x':           { name: 'Twitter / X',            desc: 'Search and read tweets and trending topics.',                       use: 'Track discussions and public sentiment' },
-            'reddit':                { name: 'Reddit',                 desc: 'Read posts, comments, and community discussions.',                  use: 'Explore community opinions and niche topics' },
-            'facebook':              { name: 'Facebook',               desc: 'Access public posts, pages, and group content.',                    use: 'Research public social media activity' },
-            'instagram':             { name: 'Instagram',              desc: 'View public profiles and post content.',                            use: 'Research influencer and brand activity' },
-        };
-
-        // Channels to hide (China-centric, not useful for global users)
-        const HIDDEN_CHANNELS = new Set(['v2ex', 'bilibili', 'xiaohongshu', 'xueqiu', 'xiaoyuzhou podcast', 'v2ex forum', 'xueqiu finance']);
-
-        function resolveChannel(ch) {
-            const key = (ch.name || '').toLowerCase().trim();
-            const info = CHANNEL_INFO[key];
-            if (info) {
-                return { name: info.name, desc: info.desc, use: info.use, status: ch.status };
-            }
-            // Fallback: clean up any remaining non-English
-            return { name: ch.name, desc: ch.description || 'Data channel', use: 'General research', status: ch.status };
-        }
-
-        // --- Dashboard Data ---
-        async function loadDashboard() {
-            document.getElementById('dashboard-loading').style.display = 'block';
-            document.getElementById('channel-grid').innerHTML = '';
-            
-            try {
-                const res = await fetch('/api/status/doctor');
-                const data = await res.json();
-                
-                document.getElementById('dashboard-loading').style.display = 'none';
-                
-                let html = '';
-                data.channels.forEach(ch => {
-                    const resolved = resolveChannel(ch);
-                    const key = resolved.name.toLowerCase().trim();
-                    
-                    // Skip hidden Chinese channels
-                    if (HIDDEN_CHANNELS.has(key)) return;
-                    
-                    let badgeClass = 'warn';
-                    let badgeText = 'NEEDS SETUP';
-                    if (resolved.status === 'ok') { badgeClass = 'ok'; badgeText = 'ACTIVE'; }
-                    if (resolved.status === 'not_installed') { badgeClass = 'error'; badgeText = 'NOT INSTALLED'; }
-                    
-                    let extraAttr = `onclick="openChat('${resolved.name}')"`;
-
-                    html += `
-                        <div class="channel-item" ${extraAttr} style="cursor: pointer">
-                            <span class="badge ${badgeClass}">${badgeText}</span>
-                            <div class="channel-name">${resolved.name}</div>
-                            <div style="font-size: 0.8rem; color: var(--text-muted)">${resolved.desc}</div>
-                            <div style="font-size: 0.75rem; color: var(--accent); margin-top: 4px;">Use for: ${resolved.use}</div>
-                        </div>
-                    `;
-                });
-                document.getElementById('channel-grid').innerHTML = html;
-
-            } catch (e) {
-                document.getElementById('dashboard-loading').innerText = 'Failed to load channel data. Check your connection.';
-            }
-        }
-
-        // --- Tools Execution ---
-        async function runTool(id, endpointBase, inputId) {
-            const input = document.getElementById(inputId).value.trim();
-            if (!input) return;
-
-            const resBox = document.getElementById('res-' + id);
-            resBox.style.display = 'block';
-            resBox.innerText = 'Loading...';
-            
-            try {
-                const res = await fetch(endpointBase + encodeURIComponent(input));
-                const data = await res.json();
-                resBox.innerText = JSON.stringify(data, null, 2);
-            } catch (e) {
-                resBox.innerText = 'Error: ' + e.message;
-            }
-        }
-
         // --- Chatbot Logic ---
-        let currentChatChannel = '';
-        
-        function openChat(channelName) {
-            currentChatChannel = channelName.toLowerCase();
-            document.getElementById('chat-title').innerText = channelName + ' Agent';
-            
-            // Switch view
-            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-            document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
-            document.getElementById('view-chat').classList.add('active');
-            
-            // Clear history
-            document.getElementById('chat-history').innerHTML = `<div style="color: var(--text-muted);">I am your ${channelName} research agent. Ask me anything and I will fetch real data for you.</div>`;
-            document.getElementById('chat-data').innerHTML = `<div style="color: var(--text-muted);">Data fetched by the agent will appear here.</div>`;
-        }
-        
         async function sendChat() {
             const inputEl = document.getElementById('chat-input');
             const msg = inputEl.value.trim();
@@ -412,23 +389,24 @@
             
             inputEl.value = '';
             const hist = document.getElementById('chat-history');
-            const dataPnl = document.getElementById('chat-data');
+            const selectedChannel = document.getElementById('channel-select').value;
             
-            hist.innerHTML += `<div style="margin: 10px 0; padding: 10px; background: rgba(6, 182, 212, 0.1); border-radius: 8px; border-left: 3px solid var(--accent);"><strong>You:</strong> ${msg}</div>`;
+            // Render user message
+            hist.innerHTML += `<div class="message user">${msg}</div>`;
             hist.scrollTop = hist.scrollHeight;
             
             // Show loading
             const loadingId = 'load-' + Date.now();
-            hist.innerHTML += `<div id="${loadingId}" style="margin: 10px 0; color: var(--text-muted);">Agent is researching — fetching data from the channel...</div>`;
+            hist.innerHTML += `<div id="${loadingId}" class="message agent"><span class="loading-dots">Researching</span></div>`;
             hist.scrollTop = hist.scrollHeight;
             
             try {
-                // Determine API endpoint based on channel
+                // Determine API endpoint
                 let endpoint = '';
-                if (currentChatChannel === 'linkedin') {
+                if (selectedChannel === 'linkedin') {
                     endpoint = '/api/chat/linkedin';
                 } else {
-                    endpoint = `/api/chat/${encodeURIComponent(currentChatChannel)}`;
+                    endpoint = `/api/chat/${encodeURIComponent(selectedChannel)}`;
                 }
                 
                 const existing_vault = localStorage.getItem('agent_vault') || '{}';
@@ -445,31 +423,40 @@
                 const data = await res.json();
                 document.getElementById(loadingId).remove();
                 
+                let agentContent = '';
+
                 if(data.auth_required) {
-                    hist.innerHTML += `<div style="margin: 10px 0; padding: 10px; background: rgba(245, 158, 11, 0.1); border-radius: 8px; border-left: 3px solid #f59e0b;">
-                        <strong>Action Required:</strong> ${data.reply} <br><br>
-                        <button class="action-btn" onclick="switchTab('settings')" style="margin-top: 10px; width: 220px;">Go to Credential Vault</button>
-                    </div>`;
-                    hist.scrollTop = hist.scrollHeight;
-                    return;
+                    agentContent = `<strong>Action Required:</strong> ${data.reply} <br><br>Please open the Vault (☰ Menu) to configure your credentials.`;
+                } else if(data.reply) {
+                    // Render markdown for the reply
+                    agentContent = marked.parse(data.reply);
+                } else {
+                    agentContent = "Error: No response from agent.";
                 }
 
-                if(data.reply) {
-                    hist.innerHTML += `<div style="margin: 10px 0; padding: 10px; background: rgba(255, 255, 255, 0.05); border-radius: 8px;"><strong>Agent:</strong> ${data.reply}</div>`;
-                }
-                
+                // If tool data was returned, append it as a collapsible element
                 if(data.data && data.data.length > 0) {
-                    dataPnl.innerHTML = '';
+                    let toolHtml = '';
                     data.data.forEach(d => {
-                        dataPnl.innerHTML += `<div style="color: var(--accent); font-weight: bold; margin-bottom: 5px;">[Tool Called: ${d.tool}]</div>`;
-                        dataPnl.innerHTML += `<div>${d.output}</div><hr style="border-color: var(--border-subtle); margin: 10px 0;">`;
+                        // Escape HTML in raw output to prevent XSS and formatting breaks
+                        const safeOutput = d.output.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                        toolHtml += `
+                            <details class="tool-data">
+                                <summary>View Raw Data: ${d.tool}</summary>
+                                <div class="raw-output">${safeOutput}</div>
+                            </details>
+                        `;
                     });
+                    agentContent += toolHtml;
                 }
-                
+
+                hist.innerHTML += `<div class="message agent">${agentContent}</div>`;
                 hist.scrollTop = hist.scrollHeight;
+
             } catch (e) {
                 document.getElementById(loadingId).remove();
-                hist.innerHTML += `<div style="margin: 10px 0; color: #f43f5e;">Error: ${e.message}</div>`;
+                hist.innerHTML += `<div class="message agent" style="color: #f43f5e;">Error: ${e.message}</div>`;
+                hist.scrollTop = hist.scrollHeight;
             }
         }
 
@@ -488,7 +475,7 @@
 
         function saveSettings() {
             const stat = document.getElementById('settings-status');
-            stat.innerText = 'Saving to Local Vault...';
+            stat.innerText = 'Saving...';
             stat.style.color = 'var(--text-muted)';
             
             const payload = {
@@ -508,7 +495,7 @@
                 
                 localStorage.setItem('agent_vault', JSON.stringify(existing));
                 
-                stat.innerText = 'Saved Securely to Vault!';
+                stat.innerText = 'Saved to Vault!';
                 stat.style.color = '#10b981';
                 
                 document.getElementById('set-groq').value = '';
@@ -519,8 +506,9 @@
                 document.getElementById('set-li-at').value = '';
                 
                 loadSettings();
+                setTimeout(() => { stat.innerText = ''; }, 3000);
             } catch (e) {
-                stat.innerText = 'Browser Storage Error';
+                stat.innerText = 'Storage Error';
                 stat.style.color = '#f43f5e';
             }
         }
@@ -539,7 +527,7 @@
             const formData = new FormData();
             formData.append('file', file);
             
-            stat.innerText = 'Uploading & Extracting...';
+            stat.innerText = 'Uploading...';
             stat.style.color = 'var(--text-muted)';
             
             try {
@@ -553,6 +541,7 @@
                     stat.innerText = 'Synced Successfully!';
                     stat.style.color = '#10b981';
                     fileInput.value = '';
+                    setTimeout(() => { stat.innerText = ''; }, 3000);
                 } else {
                     stat.innerText = 'Error: ' + data.detail;
                     stat.style.color = '#f43f5e';
@@ -566,7 +555,6 @@
         // Initialize
         checkHealth();
         setInterval(checkHealth, 30000);
-        loadDashboard();
         loadSettings();
 
     </script>
