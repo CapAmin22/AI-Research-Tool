@@ -54,3 +54,30 @@ async def update_vault(data: VaultData, request: Request):
     # Upsert the vault data
     res = supabase.table("user_vault").upsert(payload).execute()
     return {"success": True}
+
+@router.post("/sessions/{session_id}/share")
+async def share_session(session_id: str, request: Request):
+    supabase, user_id = get_auth_client(request)
+    # RLS ensures user can only update their own session
+    res = supabase.table("research_sessions").update({"is_public": True}).eq("id", session_id).eq("user_id", user_id).execute()
+    if not res.data:
+        raise HTTPException(status_code=404, detail="Session not found or permission denied")
+    return {"success": True, "share_url": f"/?share={session_id}"}
+
+@router.get("/public/sessions/{session_id}")
+async def get_public_session(session_id: str):
+    # This route bypasses the user JWT and uses the service/anon role
+    # RLS policy must allow selecting messages where session is_public=true
+    from api.utils.supabase import get_supabase_client
+    supabase = get_supabase_client() # No token, acts as anon
+    
+    # First verify if session is public
+    session_res = supabase.table("research_sessions").select("title, is_public").eq("id", session_id).execute()
+    if not session_res.data or not session_res.data[0].get("is_public"):
+        raise HTTPException(status_code=403, detail="This research session is private or does not exist.")
+        
+    res = supabase.table("messages").select("*").eq("session_id", session_id).order("created_at").execute()
+    return {
+        "title": session_res.data[0]["title"],
+        "messages": res.data
+    }

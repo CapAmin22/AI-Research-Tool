@@ -229,6 +229,26 @@ async def chat_multi(req: ChatRequest, request: Request):
         add_tool("search_web")
         add_tool("read_webpage")
         add_tool("read_rss")
+        
+    # Agentic Memory Tool - always present if authenticated
+    if supabase and user_id:
+        # Define the tool manually since it's not in public_tools list yet
+        MEMORY_TOOL = {
+            "type": "function",
+            "function": {
+                "name": "save_to_memory",
+                "description": "Save an important fact about the user or a core piece of researched information to long-term memory so you can recall it in future conversations.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "fact": {"type": "string", "description": "The specific fact to remember."},
+                        "category": {"type": "string", "description": "Category of the fact (e.g., 'User Preference', 'Startup Info')"}
+                    },
+                    "required": ["fact"]
+                }
+            }
+        }
+        tools_to_use.append(MEMORY_TOOL)
     
     # Channel-specific tools
     if "youtube" in selected_channels and not no_web:
@@ -247,6 +267,18 @@ async def chat_multi(req: ChatRequest, request: Request):
         system_content = "You are a highly intelligent, general-purpose AI Assistant. You are currently in 'Strict No-Web Chat' mode and do not have access to live web tools. Answer using your internal knowledge. Format your response cleanly using Markdown."
         tools_to_use = None
     else:
+        # Default system prompt
+        system_content = "You are a highly intelligent, general-purpose AI Research Assistant. You have access to various tools to search the web, read pages, parse news, and browse social media platforms. Use these tools to gather information before answering. Be thorough and analytical. Format your response cleanly using Markdown."
+        
+        # Try to fetch dynamic prompt from DB
+        if supabase:
+            try:
+                prompt_res = supabase.table("system_prompts").select("prompt_text").eq("is_active", True).execute()
+                if prompt_res.data and len(prompt_res.data) > 0:
+                    system_content = prompt_res.data[0]["prompt_text"]
+            except Exception as e:
+                print(f"Failed to fetch system prompt: {e}")
+                
         # Build platform-specific instructions for social channels
         social_instructions = ""
         special_channels = [c.title() for c in selected_channels if c != "no-web chat"]
@@ -293,6 +325,21 @@ When using `read_rss`, if a feed returns a 403 error, immediately fall back to `
 ALWAYS include the source name, publication time, and a clickable URL alongside each item.{social_instructions}"""
         if len(tools_to_use) == 0:
             tools_to_use = None
+
+    # -- Inject Agentic Memory --
+    memory_context = ""
+    if supabase and user_id:
+        try:
+            from api.utils.rag import search_memory
+            memories = await search_memory(req.message, access_token, limit=3)
+            if memories:
+                memory_context = "\n\n### PAST MEMORIES (LONG-TERM)\nYou have retrieved the following relevant facts from your long-term memory about the user or their research topics:\n"
+                for m in memories:
+                    memory_context += f"- {m['content']}\n"
+                memory_context += "Use these memories to inform your answer if they are relevant."
+                system_content += memory_context
+        except Exception as e:
+            print(f"Memory search error: {e}")
 
     messages = [
         {"role": "system", "content": system_content}
@@ -399,6 +446,17 @@ ALWAYS include the source name, publication time, and a clickable URL alongside 
                 
                 if tool_name == "search_web":
                     tool_output = await execute_search_web(args.get("query", ""))
+                elif tool_name == "save_to_memory" and supabase and user_id:
+                    try:
+                        from api.utils.rag import store_document
+                        success = await store_document(
+                            content=args.get("fact", ""),
+                            metadata={"category": args.get("category", "")},
+                            token=access_token
+                        )
+                        tool_output = "Fact saved to long-term memory successfully." if success else "Failed to save to memory (OpenAI API key missing?)."
+                    except Exception as e:
+                        tool_output = f"Error saving memory: {e}"
                 elif tool_name in ["get_person_profile"]:
                     tool_output = await execute_tool_on_vm(f"linkedin.{tool_name}", args, vault_cookies)
                 else:

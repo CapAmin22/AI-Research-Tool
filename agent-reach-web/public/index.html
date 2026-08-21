@@ -161,8 +161,11 @@
 
     <header>
         <div class="header-left">
-            <button class="hamburger" onclick="toggleSidebar()">&#9776;</button>
-            <div class="logo">Agent Reach <span style="font-size: 0.7rem; color: var(--accent); margin-left: 8px; cursor: pointer;" onclick="handleLogout()">Sign Out</span></div>
+            <button class="hamburger" id="hamburger-btn" onclick="toggleSidebar()">&#9776;</button>
+            <div class="logo">Agent Reach <span id="auth-controls" style="font-size: 0.7rem; color: var(--accent); margin-left: 8px; cursor: pointer;">
+                <span onclick="shareSession()" style="margin-right: 8px;">🔗 Share</span>
+                <span onclick="handleLogout()">Sign Out</span>
+            </span></div>
         </div>
         <div class="status-badge">
             <span class="status-dot" id="server-status"></span>
@@ -236,6 +239,19 @@
         let currentSessionId = null;
 
         async function initAuth() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const shareId = urlParams.get('share');
+            if (shareId) {
+                // Public read-only mode
+                document.getElementById('auth-overlay').style.display = 'none';
+                document.getElementById('sidebar').classList.add('hidden');
+                document.getElementById('hamburger-btn').style.display = 'none';
+                document.getElementById('auth-controls').style.display = 'none';
+                document.querySelector('.chat-input-container').style.display = 'none';
+                await loadPublicSession(shareId);
+                return;
+            }
+            
             const { data, error } = await sb.auth.getSession();
             if (data.session) {
                 userSession = data.session;
@@ -244,6 +260,46 @@
             } else {
                 document.getElementById('auth-overlay').style.display = 'flex';
             }
+        }
+        
+        async function loadPublicSession(sid) {
+            document.getElementById('chat-history').innerHTML = '<div style="text-align:center;padding:2rem;color:var(--text-secondary);">Loading public research report...</div>';
+            try {
+                const res = await fetch(`/api/public/sessions/${sid}`);
+                if (!res.ok) throw new Error("This session is private or does not exist.");
+                const data = await res.json();
+                
+                const hist = document.getElementById('chat-history');
+                hist.innerHTML = `<div style="text-align:center;margin-bottom:1rem;color:var(--accent);font-weight:600;">Public Report: ${data.title}</div>`;
+                
+                if(data.messages) {
+                    data.messages.forEach(m => {
+                        if(m.role === 'user') {
+                            hist.innerHTML += `<div class="msg-row user-row"><div class="msg-bubble-user">${m.content}</div></div>`;
+                        } else {
+                            let html = marked.parse(m.content);
+                            hist.innerHTML += `<div class="msg-row agent-row"><div class="msg-content-agent">${html}</div></div>`;
+                        }
+                    });
+                }
+            } catch (e) {
+                document.getElementById('chat-history').innerHTML = `<div style="text-align:center;padding:2rem;color:#ea4335;">${e.message}</div>`;
+            }
+        }
+        
+        async function shareSession() {
+            if (!currentSessionId) { alert("Please select or start a chat session first."); return; }
+            try {
+                const res = await fetch(`/api/sessions/${currentSessionId}/share`, { method: 'POST', headers: getAuthHeader() });
+                const data = await res.json();
+                if (data.share_url) {
+                    const fullUrl = window.location.origin + data.share_url;
+                    navigator.clipboard.writeText(fullUrl);
+                    alert("Public link copied to clipboard!\n" + fullUrl);
+                } else {
+                    alert("Failed to share session.");
+                }
+            } catch (e) { alert("Error sharing session."); }
         }
 
         async function handleLogin() {
