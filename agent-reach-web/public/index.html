@@ -3,688 +3,452 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Agent Reach Web Console</title>
+    <title>Agent Reach – AI Research Console</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-primary: #0f111a;
-            --bg-sidebar: #1a1d2d;
-            --bg-card: rgba(30, 41, 59, 0.7);
-            --border-subtle: rgba(255, 255, 255, 0.1);
-            --text-primary: #f8fafc;
-            --text-muted: #94a3b8;
-            --accent: #38bdf8;
-            --user-bubble: #1e3a8a;
-            --agent-bubble: #1e293b;
-            --font-sans: system-ui, -apple-system, sans-serif;
+            --bg-primary: #131314;
+            --bg-secondary: #1e1f20;
+            --bg-sidebar: #1e1f20;
+            --bg-hover: #282a2c;
+            --border-subtle: rgba(255,255,255,0.08);
+            --text-primary: #e3e3e3;
+            --text-secondary: #9aa0a6;
+            --accent: #8ab4f8;
+            --accent-dim: rgba(138,180,248,0.15);
+            --user-bubble: #004a77;
+            --content-width: 760px;
+            --font: 'Inter', system-ui, -apple-system, sans-serif;
         }
 
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
         body {
-            background-color: var(--bg-primary);
+            background: var(--bg-primary);
             color: var(--text-primary);
-            font-family: var(--font-sans);
-            margin: 0;
-            padding: 0;
-            line-height: 1.6;
+            font-family: var(--font);
             height: 100vh;
             display: flex;
             flex-direction: column;
             overflow: hidden;
         }
 
+        /* ── Header ── */
         header {
-            padding: 0.75rem 1.5rem;
-            border-bottom: 1px solid var(--border-subtle);
-            background: var(--bg-sidebar);
+            padding: 0.6rem 1.25rem;
+            background: var(--bg-primary);
             display: flex;
             justify-content: space-between;
             align-items: center;
+            border-bottom: 1px solid var(--border-subtle);
             z-index: 100;
+            flex-shrink: 0;
         }
-
-        .header-left {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }
-
+        .header-left { display: flex; align-items: center; gap: 0.75rem; }
         .hamburger {
-            background: none;
-            border: none;
-            color: var(--text-primary);
-            font-size: 1.5rem;
-            cursor: pointer;
-            padding: 0.25rem 0.5rem;
-            border-radius: 4px;
+            background: none; border: none; color: var(--text-primary);
+            font-size: 1.3rem; cursor: pointer; padding: 6px 8px; border-radius: 50%;
         }
-        .hamburger:hover { background: rgba(255,255,255,0.1); }
+        .hamburger:hover { background: var(--bg-hover); }
+        .logo { font-weight: 600; font-size: 1.1rem; letter-spacing: -0.02em; }
+        .status-badge { display:flex; align-items:center; gap:6px; font-size:0.8rem; color:var(--text-secondary); }
+        .status-dot { width:8px; height:8px; border-radius:50%; background:#64748b; }
+        .status-dot.online { background:#34a853; }
+        .status-dot.offline { background:#ea4335; }
 
-        .logo { font-weight: bold; font-size: 1.2rem; }
-        
-        .status-dot {
-            display: inline-block;
-            width: 10px; height: 10px;
-            border-radius: 50%;
-            background-color: #64748b;
-            margin-right: 8px;
-        }
-        .status-dot.online { background-color: #10b981; }
-        .status-dot.offline { background-color: #f43f5e; }
+        /* ── Layout ── */
+        .app-container { display: flex; flex: 1; overflow: hidden; }
 
-        .app-container {
-            display: flex;
-            flex: 1;
-            overflow: hidden;
-        }
-
-        /* Sidebar */
+        /* ── Sidebar ── */
         .sidebar {
-            width: 300px;
-            background: var(--bg-sidebar);
-            border-right: 1px solid var(--border-subtle);
-            overflow-y: auto;
-            transition: transform 0.3s ease, width 0.3s ease;
-            display: flex;
-            flex-direction: column;
+            width: 280px; background: var(--bg-sidebar); border-right: 1px solid var(--border-subtle);
+            overflow-y: auto; transition: width 0.25s ease; flex-shrink: 0;
         }
-        .sidebar.hidden {
-            width: 0;
-            border-right: none;
-            overflow: hidden;
+        .sidebar.hidden { width: 0; border-right: none; overflow: hidden; }
+        .sidebar-content { padding: 1.25rem; min-width: 250px; }
+        .sidebar-title { font-size: 0.85rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 1rem; }
+        .sidebar-group { margin-bottom: 1rem; }
+        .sidebar-group h4 { font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 0.3rem; font-weight: 500; }
+        .sidebar-group input {
+            width: 100%; padding: 0.45rem 0.6rem; background: var(--bg-primary); border: 1px solid var(--border-subtle);
+            color: var(--text-primary); border-radius: 8px; font-size: 0.82rem; font-family: var(--font);
         }
-        
-        .sidebar-content {
-            padding: 1.5rem;
-            min-width: 260px;
+        .sidebar-group input:focus { outline: none; border-color: var(--accent); }
+        .sidebar-btn {
+            width: 100%; padding: 0.5rem; background: var(--accent); color: #131314; border: none;
+            border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.85rem; font-family: var(--font);
         }
+        .sidebar-btn:hover { filter: brightness(1.1); }
+        .sidebar-divider { border: none; border-top: 1px solid var(--border-subtle); margin: 1.25rem 0; }
 
-        /* Settings UI in Sidebar */
-        .settings-title { font-size: 1.1rem; font-weight: bold; margin-bottom: 1rem; }
-        .settings-group { margin-bottom: 1.2rem; }
-        .settings-group h4 { margin: 0 0 0.4rem 0; font-size: 0.85rem; color: var(--text-muted); }
-        .settings-group input {
-            width: 100%;
-            box-sizing: border-box;
-            padding: 0.5rem;
-            background: rgba(0,0,0,0.2);
-            border: 1px solid var(--border-subtle);
-            color: white;
-            border-radius: 4px;
-            font-size: 0.85rem;
-        }
-
-        .action-btn {
-            padding: 0.5rem 1rem;
-            background: var(--accent);
-            color: #0f111a;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-weight: bold;
-            font-size: 0.9rem;
-        }
-        .action-btn:hover { filter: brightness(1.1); }
-
-        /* Main Chat Area */
-        .main-chat {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            background: var(--bg-primary);
-        }
+        /* ── Main Chat ── */
+        .main-chat { flex: 1; display: flex; flex-direction: column; }
 
         .chat-history {
-            flex: 1;
-            overflow-y: auto;
-            padding: 2rem;
-            display: flex;
-            flex-direction: column;
-            gap: 1.5rem;
+            flex: 1; overflow-y: auto; padding: 1.5rem 1rem;
+            display: flex; flex-direction: column; gap: 1.5rem;
         }
 
-        .message {
-            max-width: 80%;
-            padding: 1rem 1.2rem;
-            border-radius: 12px;
-            line-height: 1.5;
+        /* ── Messages ── */
+        .msg-row { max-width: var(--content-width); width: 100%; margin: 0 auto; }
+        .msg-row.user-row { display: flex; justify-content: flex-end; }
+        .msg-row.agent-row { display: flex; justify-content: flex-start; }
+
+        .msg-bubble-user {
+            background: var(--user-bubble); padding: 0.7rem 1rem; border-radius: 18px 18px 4px 18px;
+            max-width: 75%; font-size: 0.95rem; line-height: 1.5;
         }
-        .message.user {
-            background: var(--user-bubble);
-            align-self: flex-end;
-            border-bottom-right-radius: 2px;
-        }
-        .message.agent {
-            background: var(--agent-bubble);
-            align-self: flex-start;
-            border-bottom-left-radius: 2px;
-            border: 1px solid var(--border-subtle);
+        .msg-content-agent {
+            padding: 0.25rem 0; font-size: 0.95rem; line-height: 1.7; max-width: 100%;
         }
 
-        /* Markdown tables in agent message */
-        .message table { border-collapse: collapse; width: 100%; margin-top: 1rem; }
-        .message th, .message td { border: 1px solid var(--border-subtle); padding: 0.5rem; text-align: left; }
-        .message th { background: rgba(255,255,255,0.05); }
+        /* Markdown inside agent */
+        .msg-content-agent h1,.msg-content-agent h2,.msg-content-agent h3 { margin: 0.8rem 0 0.4rem; font-weight: 600; }
+        .msg-content-agent h1 { font-size: 1.2rem; }
+        .msg-content-agent h2 { font-size: 1.05rem; }
+        .msg-content-agent h3 { font-size: 0.95rem; }
+        .msg-content-agent p { margin: 0.4rem 0; }
+        .msg-content-agent ul,.msg-content-agent ol { margin: 0.4rem 0; padding-left: 1.5rem; }
+        .msg-content-agent li { margin: 0.2rem 0; }
+        .msg-content-agent strong { color: #fff; }
+        .msg-content-agent a { color: var(--accent); text-decoration: none; }
+        .msg-content-agent a:hover { text-decoration: underline; }
+        .msg-content-agent code { background: rgba(255,255,255,0.08); padding: 0.15rem 0.35rem; border-radius: 4px; font-size: 0.85em; }
+        .msg-content-agent pre { background: var(--bg-secondary); padding: 0.75rem; border-radius: 8px; overflow-x: auto; margin: 0.5rem 0; }
+        .msg-content-agent pre code { background: none; padding: 0; }
 
-        /* Collapsible tool data */
+        /* Tables */
+        .msg-content-agent table { border-collapse: collapse; width: 100%; margin: 0.75rem 0; font-size: 0.88rem; }
+        .msg-content-agent th,.msg-content-agent td { border: 1px solid var(--border-subtle); padding: 0.45rem 0.65rem; text-align: left; }
+        .msg-content-agent th { background: rgba(255,255,255,0.04); font-weight: 600; color: var(--accent); }
+        .msg-content-agent tr:hover td { background: rgba(255,255,255,0.02); }
+
+        /* Tool data accordion */
         details.tool-data {
-            background: rgba(0,0,0,0.3);
-            border: 1px solid var(--border-subtle);
-            border-radius: 8px;
-            margin-top: 1rem;
-            padding: 0.5rem;
+            background: var(--bg-secondary); border: 1px solid var(--border-subtle); border-radius: 8px;
+            margin-top: 0.75rem; padding: 0.5rem 0.75rem;
         }
-        details.tool-data summary {
-            cursor: pointer;
-            font-weight: bold;
-            color: var(--accent);
-            outline: none;
-            font-size: 0.9rem;
-        }
+        details.tool-data summary { cursor: pointer; font-weight: 500; color: var(--accent); font-size: 0.82rem; outline: none; }
         details.tool-data .raw-output {
-            margin-top: 0.5rem;
-            padding-top: 0.5rem;
-            border-top: 1px solid var(--border-subtle);
-            font-family: monospace;
-            font-size: 0.8rem;
-            white-space: pre-wrap;
-            word-break: break-all;
-            color: var(--text-muted);
-            max-height: 300px;
-            overflow-y: auto;
+            margin-top: 0.4rem; padding-top: 0.4rem; border-top: 1px solid var(--border-subtle);
+            font-family: monospace; font-size: 0.75rem; white-space: pre-wrap; word-break: break-all;
+            color: var(--text-secondary); max-height: 250px; overflow-y: auto;
         }
 
-        .chat-input-container {
-            padding: 1.5rem;
-            background: var(--bg-primary);
-            border-top: 1px solid var(--border-subtle);
+        /* ── Input Bar ── */
+        .chat-input-container { padding: 0.75rem 1rem 1.25rem; background: var(--bg-primary); flex-shrink: 0; }
+        .input-area {
+            max-width: var(--content-width); margin: 0 auto;
+            background: var(--bg-secondary); border: 1px solid var(--border-subtle); border-radius: 24px;
+            padding: 0.5rem 0.5rem 0.5rem 0.75rem; display: flex; align-items: center; gap: 0.4rem;
+            transition: border-color 0.2s;
         }
+        .input-area:focus-within { border-color: rgba(138,180,248,0.4); }
 
-        .input-wrapper {
-            max-width: 800px;
-            margin: 0 auto;
-            display: flex;
-            gap: 0.5rem;
-            background: var(--bg-card);
-            padding: 0.5rem;
-            border-radius: 8px;
-            border: 1px solid var(--border-subtle);
-            align-items: center;
+        .multi-select-container { position: relative; }
+        .channel-btn {
+            background: var(--accent-dim); color: var(--accent); border: none;
+            padding: 0.4rem 0.7rem; border-radius: 16px; font-weight: 500; cursor: pointer;
+            font-size: 0.8rem; font-family: var(--font); white-space: nowrap;
+            display: flex; align-items: center; gap: 4px;
         }
+        .channel-btn:hover { background: rgba(138,180,248,0.25); }
 
-        .multi-select-container {
-            position: relative;
-        }
-
-        .channel-selector {
-            background: rgba(0,0,0,0.2);
-            color: var(--accent);
-            border: 1px solid var(--border-subtle);
-            padding: 0.6rem;
-            border-radius: 6px;
-            font-weight: bold;
-            cursor: pointer;
-            outline: none;
-            text-align: left;
-            min-width: 180px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        
         .multi-select-dropdown {
-            position: absolute;
-            bottom: 100%;
-            left: 0;
-            background: var(--bg-sidebar);
-            border: 1px solid var(--border-subtle);
-            border-radius: 6px;
-            padding: 0.5rem;
-            width: 250px;
-            max-height: 300px;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-            gap: 0.25rem;
-            margin-bottom: 0.5rem;
-            box-shadow: 0 -4px 15px rgba(0,0,0,0.5);
-            z-index: 1000;
+            position: absolute; bottom: calc(100% + 8px); left: 0;
+            background: var(--bg-secondary); border: 1px solid var(--border-subtle); border-radius: 12px;
+            padding: 0.5rem; width: 240px; max-height: 300px; overflow-y: auto;
+            box-shadow: 0 -4px 20px rgba(0,0,0,0.6); z-index: 1000;
         }
-        .multi-select-dropdown.hidden {
-            display: none;
-        }
-        
+        .multi-select-dropdown.hidden { display: none; }
         .multi-select-dropdown label {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            font-size: 0.85rem;
-            cursor: pointer;
-            padding: 0.4rem;
-            border-radius: 4px;
+            display: flex; align-items: center; gap: 0.5rem; font-size: 0.82rem;
+            cursor: pointer; padding: 0.4rem 0.5rem; border-radius: 8px;
         }
-        .multi-select-dropdown label:hover {
-            background: rgba(255,255,255,0.1);
-        }
+        .multi-select-dropdown label:hover { background: var(--bg-hover); }
+        .multi-select-dropdown input[type="checkbox"] { accent-color: var(--accent); }
 
         .chat-input {
-            flex: 1;
-            background: transparent;
-            border: none;
-            color: white;
-            padding: 0.6rem;
-            font-size: 1rem;
-            outline: none;
+            flex: 1; background: transparent; border: none; color: var(--text-primary);
+            padding: 0.4rem 0.25rem; font-size: 0.95rem; outline: none; font-family: var(--font);
         }
+        .chat-input::placeholder { color: var(--text-secondary); }
 
         .send-btn {
-            background: var(--accent);
-            color: #0f111a;
-            border: none;
-            width: 40px;
-            height: 40px;
-            border-radius: 6px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            background: var(--accent); color: #131314; border: none; width: 36px; height: 36px;
+            border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0; transition: opacity 0.2s;
         }
-        .send-btn:hover { filter: brightness(1.1); }
-        .send-btn svg { width: 20px; height: 20px; fill: currentColor; }
+        .send-btn:hover { opacity: 0.85; }
+        .send-btn svg { width: 18px; height: 18px; fill: currentColor; }
 
-        .loading-dots {
-            display: inline-block;
-        }
+        .disclaimer { text-align: center; font-size: 0.72rem; color: var(--text-secondary); margin-top: 0.4rem; }
+
+        /* Loading */
+        .loading-dots { display: inline-block; }
         .loading-dots::after {
-            content: '.';
-            animation: dots 1.5s steps(5, end) infinite;
+            content: '.'; animation: dots 1.5s steps(5, end) infinite;
         }
         @keyframes dots {
-            0%, 20% { color: rgba(0,0,0,0); text-shadow: .25em 0 0 rgba(0,0,0,0), .5em 0 0 rgba(0,0,0,0); }
-            40% { color: inherit; text-shadow: .25em 0 0 rgba(0,0,0,0), .5em 0 0 rgba(0,0,0,0); }
-            60% { text-shadow: .25em 0 0 inherit, .5em 0 0 rgba(0,0,0,0); }
+            0%, 20% { color: transparent; text-shadow: .25em 0 0 transparent, .5em 0 0 transparent; }
+            40% { color: inherit; text-shadow: .25em 0 0 transparent, .5em 0 0 transparent; }
+            60% { text-shadow: .25em 0 0 inherit, .5em 0 0 transparent; }
             80%, 100% { text-shadow: .25em 0 0 inherit, .5em 0 0 inherit; }
         }
 
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
     </style>
 </head>
 <body>
 
     <header>
         <div class="header-left">
-            <button class="hamburger" onclick="toggleSidebar()">☰</button>
+            <button class="hamburger" onclick="toggleSidebar()">&#9776;</button>
             <div class="logo">Agent Reach</div>
         </div>
-        <div>
+        <div class="status-badge">
             <span class="status-dot" id="server-status"></span>
-            <span id="server-text" style="font-size: 0.85rem; color: var(--text-muted);">Checking...</span>
+            <span id="server-text">Checking...</span>
         </div>
     </header>
 
     <div class="app-container">
-        
-        <!-- Sidebar (Vault/Settings) -->
+
         <aside class="sidebar hidden" id="sidebar">
             <div class="sidebar-content">
-                <div class="settings-title">Vault Credentials</div>
-                <p style="color: var(--text-muted); font-size: 0.8rem; margin-top: 0;">Store credentials to enable human authentication for agents.</p>
-                
-                <div class="settings-group">
-                    <h4>GitHub Token</h4>
-                    <input type="password" id="set-gh" placeholder="ghp_...">
-                </div>
-                <div class="settings-group">
-                    <h4>Twitter/X Auth Token</h4>
-                    <input type="password" id="set-tw-auth" placeholder="auth_token cookie...">
-                </div>
-                <div class="settings-group">
-                    <h4>Twitter/X CT0</h4>
-                    <input type="password" id="set-tw-ct0" placeholder="ct0 cookie...">
-                </div>
-                <div class="settings-group">
-                    <h4>Reddit Cookie</h4>
-                    <input type="password" id="set-rdt" placeholder="reddit_session cookie...">
-                </div>
-                <div class="settings-group">
-                    <h4>LinkedIn li_at Cookie</h4>
-                    <input type="password" id="set-li-at" placeholder="li_at cookie...">
-                </div>
-                
-                <div style="margin-top: 1.5rem;">
-                    <button class="action-btn" style="width: 100%;" onclick="saveSettings()">Save Credentials</button>
-                    <div id="settings-status" style="margin-top: 8px; font-weight: bold; font-size: 0.85rem; text-align: center;"></div>
+                <div class="sidebar-title">Credential Vault</div>
+                <p style="color:var(--text-secondary);font-size:0.78rem;margin-bottom:1rem;">Store auth tokens so agents can access gated platforms.</p>
+
+                <div class="sidebar-group"><h4>GitHub Token</h4><input type="password" id="set-gh" placeholder="ghp_..."></div>
+                <div class="sidebar-group"><h4>Twitter/X Auth Token</h4><input type="password" id="set-tw-auth" placeholder="auth_token cookie..."></div>
+                <div class="sidebar-group"><h4>Twitter/X CT0</h4><input type="password" id="set-tw-ct0" placeholder="ct0 cookie..."></div>
+                <div class="sidebar-group"><h4>Reddit Cookie</h4><input type="password" id="set-rdt" placeholder="reddit_session cookie..."></div>
+                <div class="sidebar-group"><h4>LinkedIn li_at Cookie</h4><input type="password" id="set-li-at" placeholder="li_at cookie..."></div>
+
+                <div style="margin-top:1rem;">
+                    <button class="sidebar-btn" onclick="saveSettings()">Save Credentials</button>
+                    <div id="settings-status" style="margin-top:6px;font-size:0.8rem;text-align:center;font-weight:500;"></div>
                 </div>
 
-                <hr style="border-color: var(--border-subtle); margin: 2rem 0;">
-                
-                <div class="settings-title" style="font-size: 0.95rem; color: #60a5fa;">LinkedIn Profile Sync</div>
-                <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 1rem;">
-                    Upload the zipped <code>.linkedin-mcp/profile</code> folder generated via <code>uvx mcp-server-linkedin@latest --login</code> on your local PC.
-                </p>
-                <input type="file" id="li-file" accept=".zip" style="width: 100%; padding: 0.5rem; background: rgba(0,0,0,0.2); border: 1px solid var(--border-subtle); border-radius: 4px; font-size: 0.8rem; margin-bottom: 10px;">
-                <button class="action-btn" style="width: 100%; font-size: 0.85rem; background: #60a5fa;" onclick="uploadLinkedIn()">Sync Profile ZIP</button>
-                <div id="li-upload-status" style="margin-top: 8px; font-weight: bold; font-size: 0.85rem; text-align: center;"></div>
+                <hr class="sidebar-divider">
+
+                <div class="sidebar-title" style="color:#8ab4f8;">LinkedIn Profile Sync</div>
+                <p style="font-size:0.72rem;color:var(--text-secondary);margin-bottom:0.75rem;">Upload the zipped <code>.linkedin-mcp/profile</code> folder.</p>
+                <input type="file" id="li-file" accept=".zip" style="width:100%;padding:0.4rem;background:var(--bg-primary);border:1px solid var(--border-subtle);border-radius:8px;font-size:0.78rem;margin-bottom:8px;color:var(--text-primary);">
+                <button class="sidebar-btn" style="background:#8ab4f8;" onclick="uploadLinkedIn()">Sync Profile ZIP</button>
+                <div id="li-upload-status" style="margin-top:6px;font-size:0.8rem;text-align:center;font-weight:500;"></div>
             </div>
         </aside>
 
-        <!-- Main Chat Interface -->
         <main class="main-chat">
             <div class="chat-history" id="chat-history">
-                <div class="message agent">
-                    Hello! I am your AI Research Assistant. Select an agent channel from the dropdown below or leave it on "Base Assistant" for general LLM answers.
+                <div class="msg-row agent-row">
+                    <div class="msg-content-agent">
+                        <p>Hello! I'm your <strong>AI Research Assistant</strong>. Select agent channels from the dropdown below, or leave it on <strong>Base Assistant</strong> for general answers.</p>
+                    </div>
                 </div>
             </div>
-            
+
             <div class="chat-input-container">
-                <div class="input-wrapper">
+                <div class="input-area">
                     <div class="multi-select-container" id="multi-select-container">
-                        <button class="channel-selector" id="multi-select-btn" onclick="toggleMultiSelect()">
-                            <span id="multi-select-text">🟢 Base Assistant</span>
-                            <span style="font-size: 0.7em;">▼</span>
+                        <button class="channel-btn" id="multi-select-btn" onclick="toggleMultiSelect()">
+                            <span id="multi-select-text">Base Assistant</span>
+                            <span style="font-size:0.65em;">&#9660;</span>
                         </button>
-                        <div class="multi-select-dropdown hidden" id="multi-select-dropdown">
-                            <!-- Populated dynamically -->
-                        </div>
+                        <div class="multi-select-dropdown hidden" id="multi-select-dropdown"></div>
                     </div>
-                    
-                    <input type="text" class="chat-input" id="chat-input" placeholder="Message Agent Reach..." onkeypress="if(event.key === 'Enter') sendChat()">
-                    
+                    <input type="text" class="chat-input" id="chat-input" placeholder="Ask Agent Reach..." onkeypress="if(event.key==='Enter')sendChat()">
                     <button class="send-btn" onclick="sendChat()">
-                        <svg viewBox="0 0 24 24"><path d="M2,21L23,12L2,3V10L17,12L2,14V21Z" /></svg>
+                        <svg viewBox="0 0 24 24"><path d="M2,21L23,12L2,3V10L17,12L2,14V21Z"/></svg>
                     </button>
                 </div>
+                <div class="disclaimer">Agent Reach is AI-powered and may produce inaccurate results. Verify important information.</div>
             </div>
         </main>
-        
+
     </div>
 
-    <!-- Include marked.js for markdown rendering -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-
     <script>
-        function toggleSidebar() {
-            document.getElementById('sidebar').classList.toggle('hidden');
-        }
+        function toggleSidebar() { document.getElementById('sidebar').classList.toggle('hidden'); }
+        function toggleMultiSelect() { document.getElementById('multi-select-dropdown').classList.toggle('hidden'); }
 
-        function toggleMultiSelect() {
-            document.getElementById('multi-select-dropdown').classList.toggle('hidden');
-        }
-
-        // Close dropdown when clicking outside
         document.addEventListener('click', function(e) {
-            const container = document.getElementById('multi-select-container');
-            if (container && !container.contains(e.target)) {
-                document.getElementById('multi-select-dropdown').classList.add('hidden');
-            }
+            const c = document.getElementById('multi-select-container');
+            if (c && !c.contains(e.target)) document.getElementById('multi-select-dropdown').classList.add('hidden');
         });
 
-        // Track selected channels
         let selectedChannels = [];
 
         function handleChannelSelect() {
-            const checkboxes = document.querySelectorAll('.multi-select-dropdown input[type="checkbox"]');
+            const cbs = document.querySelectorAll('.multi-select-dropdown input[type="checkbox"]');
             selectedChannels = [];
-            checkboxes.forEach(cb => {
-                if (cb.checked) selectedChannels.push(cb.value);
-            });
-            
-            const btnText = document.getElementById('multi-select-text');
-            if (selectedChannels.length === 0) {
-                btnText.innerText = '🟢 Base Assistant';
-            } else if (selectedChannels.length === 1) {
-                // Find name
-                let name = selectedChannels[0];
-                Object.keys(CHANNEL_INFO).forEach(k => { if(CHANNEL_INFO[k].val === name) name = CHANNEL_INFO[k].name; });
-                btnText.innerText = name;
-            } else {
-                btnText.innerText = `${selectedChannels.length} Agents Selected`;
-            }
+            cbs.forEach(cb => { if (cb.checked) selectedChannels.push(cb.value); });
+
+            const t = document.getElementById('multi-select-text');
+            if (selectedChannels.length === 0) { t.innerText = 'Base Assistant'; }
+            else if (selectedChannels.length === 1) {
+                let n = selectedChannels[0];
+                Object.keys(CHANNEL_INFO).forEach(k => { if (CHANNEL_INFO[k].val === n) n = CHANNEL_INFO[k].name; });
+                t.innerText = n;
+            } else { t.innerText = selectedChannels.length + ' Agents'; }
         }
 
-        // --- Status and Channels Logic ---
         const CHANNEL_INFO = {
             'github':                { name: 'GitHub Agent',                val: 'github' },
             'youtube':               { name: 'YouTube Agent',               val: 'youtube' },
             'web search':            { name: 'Web Search Agent',            val: 'web search' },
             'read webpage':          { name: 'Read Webpage Agent',          val: 'read webpage' },
             'rss/atom':              { name: 'RSS / Atom Agent',            val: 'rss/atom' },
-            'podcast transcription': { name: 'Podcast Transcription Agent', val: 'podcast transcription' },
+            'podcast transcription': { name: 'Podcast Transcription',       val: 'podcast transcription' },
             'linkedin':              { name: 'LinkedIn Agent',              val: 'linkedin' }
         };
-        
         const COMING_SOON_CHANNELS = [
-            { name: 'Twitter / X Agent (Soon)', val: 'twitter / x' },
-            { name: 'Reddit Agent (Soon)', val: 'reddit' },
-            { name: 'Facebook Agent (Soon)', val: 'facebook' },
-            { name: 'Instagram Agent (Soon)', val: 'instagram' }
+            { name: 'Twitter / X (Soon)', val: 'twitter / x' },
+            { name: 'Reddit (Soon)', val: 'reddit' },
+            { name: 'Facebook (Soon)', val: 'facebook' },
+            { name: 'Instagram (Soon)', val: 'instagram' }
         ];
-
-        const HIDDEN_CHANNELS = new Set(['v2ex', 'bilibili', 'xiaohongshu', 'xueqiu', 'xiaoyuzhou podcast', 'v2ex forum', 'xueqiu finance']);
+        const HIDDEN_CHANNELS = new Set(['v2ex','bilibili','xiaohongshu','xueqiu','xiaoyuzhou podcast','v2ex forum','xueqiu finance']);
 
         async function loadChannelStatuses() {
             try {
                 const res = await fetch('/api/status/doctor');
                 const data = await res.json();
-                
-                const selectEl = document.getElementById('multi-select-dropdown');
-                selectEl.innerHTML = ''; // clear
-                
-                const statusMap = {};
-                data.channels.forEach(ch => {
-                    const key = (ch.name || '').toLowerCase().trim();
-                    statusMap[key] = ch.status;
-                });
+                const el = document.getElementById('multi-select-dropdown');
+                el.innerHTML = '';
+                const sm = {};
+                data.channels.forEach(ch => { sm[(ch.name||'').toLowerCase().trim()] = ch.status; });
 
-                // Add active global channels
                 Object.keys(CHANNEL_INFO).forEach(key => {
                     if (HIDDEN_CHANNELS.has(key)) return;
-                    
                     const info = CHANNEL_INFO[key];
-                    const backendStatus = statusMap[key] || 'ok'; // Default to ok if not explicitly failing
-                    
-                    let icon = '🔴';
-                    if (backendStatus === 'ok') icon = '🟢';
-                    else if (backendStatus === 'not_installed') icon = '🔴';
-                    
-                    let isChecked = selectedChannels.includes(info.val) ? 'checked' : '';
-                    selectEl.innerHTML += `<label><input type="checkbox" value="${info.val}" onchange="handleChannelSelect()" ${isChecked}> ${icon} ${info.name}</label>`;
+                    const st = sm[key] || 'ok';
+                    const icon = st === 'ok' ? '🟢' : '🔴';
+                    const chk = selectedChannels.includes(info.val) ? 'checked' : '';
+                    el.innerHTML += `<label><input type="checkbox" value="${info.val}" onchange="handleChannelSelect()" ${chk}> ${icon} ${info.name}</label>`;
                 });
-                
-                // Add coming soon channels
                 COMING_SOON_CHANNELS.forEach(ch => {
-                    selectEl.innerHTML += `<label style="opacity: 0.5; cursor: not-allowed;"><input type="checkbox" value="${ch.val}" disabled> 🟡 ${ch.name}</label>`;
+                    el.innerHTML += `<label style="opacity:0.45;cursor:not-allowed;"><input type="checkbox" value="${ch.val}" disabled> 🟡 ${ch.name}</label>`;
                 });
-                
                 handleChannelSelect();
-                
-            } catch (e) {
-                console.error("Failed to load channel statuses", e);
-            }
+            } catch (e) { console.error("Failed to load channel statuses", e); }
         }
 
-        // --- Health Check ---
         async function checkHealth() {
             try {
-                const res = await fetch('/api/status/health');
-                if (res.ok) {
-                    document.getElementById('server-status').className = 'status-dot online';
-                    document.getElementById('server-text').innerText = 'Online';
-                } else throw new Error();
-            } catch (e) {
-                document.getElementById('server-status').className = 'status-dot offline';
-                document.getElementById('server-text').innerText = 'Offline';
-            }
+                const r = await fetch('/api/status/health');
+                if (r.ok) { document.getElementById('server-status').className='status-dot online'; document.getElementById('server-text').innerText='Online'; }
+                else throw 0;
+            } catch(e) { document.getElementById('server-status').className='status-dot offline'; document.getElementById('server-text').innerText='Offline'; }
         }
 
-        // --- Chatbot Logic ---
         async function sendChat() {
-            const inputEl = document.getElementById('chat-input');
-            const msg = inputEl.value.trim();
-            if(!msg) return;
-            
-            inputEl.value = '';
+            const inp = document.getElementById('chat-input');
+            const msg = inp.value.trim();
+            if (!msg) return;
+            inp.value = '';
             const hist = document.getElementById('chat-history');
-            
-            // Render user message
-            hist.innerHTML += `<div class="message user">${msg}</div>`;
-            hist.scrollTop = hist.scrollHeight;
-            
-            // Show loading
-            const loadingId = 'load-' + Date.now();
-            hist.innerHTML += `<div id="${loadingId}" class="message agent"><span class="loading-dots">Researching</span></div>`;
-            hist.scrollTop = hist.scrollHeight;
-            
-            try {
-                // Determine API endpoint - now fully unified in /multi
-                let endpoint = '/api/chat/multi';
-                
-                const existing_vault = localStorage.getItem('agent_vault') || '{}';
 
-                const res = await fetch(endpoint, {
+            hist.innerHTML += `<div class="msg-row user-row"><div class="msg-bubble-user">${msg}</div></div>`;
+            hist.scrollTop = hist.scrollHeight;
+
+            const lid = 'ld-' + Date.now();
+            hist.innerHTML += `<div class="msg-row agent-row" id="${lid}"><div class="msg-content-agent"><span class="loading-dots">Researching</span></div></div>`;
+            hist.scrollTop = hist.scrollHeight;
+
+            try {
+                const vault = localStorage.getItem('agent_vault') || '{}';
+                const res = await fetch('/api/chat/multi', {
                     method: 'POST',
-                    headers: { 
-                        'Content-Type': 'application/json',
-                        'X-Vault-Cookies': existing_vault
-                    },
+                    headers: { 'Content-Type': 'application/json', 'X-Vault-Cookies': vault },
                     body: JSON.stringify({ message: msg, channels: selectedChannels })
                 });
-                
                 const data = await res.json();
-                document.getElementById(loadingId).remove();
-                
-                let agentContent = '';
+                document.getElementById(lid).remove();
 
-                if(data.auth_required) {
-                    agentContent = `<strong>Action Required:</strong> ${data.reply} <br><br>Please open the Vault (☰ Menu) to configure your credentials.`;
-                } else if(data.reply) {
-                    // Render markdown for the reply
-                    agentContent = marked.parse(data.reply);
-                } else if(data.detail) {
-                    agentContent = "Backend Error: " + (typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail));
+                let html = '';
+                if (data.auth_required) {
+                    html = `<strong>Action Required:</strong> ${data.reply}<br><br>Open the sidebar (☰) to configure credentials.`;
+                } else if (data.reply) {
+                    html = marked.parse(data.reply);
+                } else if (data.detail) {
+                    html = 'Backend Error: ' + (typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail));
                 } else {
-                    agentContent = "Error: No response from agent.";
+                    html = 'Error: No response from agent.';
                 }
 
-                // If tool data was returned, append it as a collapsible element
-                if(data.data && data.data.length > 0) {
-                    let toolHtml = '';
+                if (data.data && data.data.length > 0) {
                     data.data.forEach(d => {
-                        // Escape HTML in raw output to prevent XSS and formatting breaks
-                        const safeOutput = d.output.replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                        toolHtml += `
-                            <details class="tool-data">
-                                <summary>View Raw Data: ${d.tool}</summary>
-                                <div class="raw-output">${safeOutput}</div>
-                            </details>
-                        `;
+                        const safe = d.output.replace(/</g,'&lt;').replace(/>/g,'&gt;');
+                        html += `<details class="tool-data"><summary>View Raw Data: ${d.tool}</summary><div class="raw-output">${safe}</div></details>`;
                     });
-                    agentContent += toolHtml;
                 }
 
-                hist.innerHTML += `<div class="message agent">${agentContent}</div>`;
+                hist.innerHTML += `<div class="msg-row agent-row"><div class="msg-content-agent">${html}</div></div>`;
                 hist.scrollTop = hist.scrollHeight;
-
             } catch (e) {
-                document.getElementById(loadingId).remove();
-                hist.innerHTML += `<div class="message agent" style="color: #f43f5e;">Error: ${e.message}</div>`;
+                document.getElementById(lid).remove();
+                hist.innerHTML += `<div class="msg-row agent-row"><div class="msg-content-agent" style="color:#ea4335;">Error: ${e.message}</div></div>`;
                 hist.scrollTop = hist.scrollHeight;
             }
         }
 
-        // --- Settings Management ---
         function loadSettings() {
             try {
-                const existing = JSON.parse(localStorage.getItem('agent_vault') || '{}');
-                if(existing.github_token) document.getElementById('set-gh').placeholder = '******** (Saved in Vault)';
-                if(existing.twitter_auth_token) document.getElementById('set-tw-auth').placeholder = '******** (Saved in Vault)';
-                if(existing.twitter_ct0) document.getElementById('set-tw-ct0').placeholder = '******** (Saved in Vault)';
-                if(existing.reddit_cookie) document.getElementById('set-rdt').placeholder = '******** (Saved in Vault)';
-                if(existing.linkedin_li_at) document.getElementById('set-li-at').placeholder = '******** (Saved in Vault)';
-            } catch(e) {}
+                const v = JSON.parse(localStorage.getItem('agent_vault') || '{}');
+                if(v.github_token) document.getElementById('set-gh').placeholder='●●●●●●●● (Saved)';
+                if(v.twitter_auth_token) document.getElementById('set-tw-auth').placeholder='●●●●●●●● (Saved)';
+                if(v.twitter_ct0) document.getElementById('set-tw-ct0').placeholder='●●●●●●●● (Saved)';
+                if(v.reddit_cookie) document.getElementById('set-rdt').placeholder='●●●●●●●● (Saved)';
+                if(v.linkedin_li_at) document.getElementById('set-li-at').placeholder='●●●●●●●● (Saved)';
+            } catch(e){}
         }
 
         function saveSettings() {
-            const stat = document.getElementById('settings-status');
-            stat.innerText = 'Saving...';
-            stat.style.color = 'var(--text-muted)';
-            
-            const payload = {
-                github_token: document.getElementById('set-gh').value || null,
-                twitter_auth_token: document.getElementById('set-tw-auth').value || null,
-                twitter_ct0: document.getElementById('set-tw-ct0').value || null,
-                reddit_cookie: document.getElementById('set-rdt').value || null,
-                linkedin_li_at: document.getElementById('set-li-at').value || null
+            const s = document.getElementById('settings-status');
+            s.innerText='Saving...'; s.style.color='var(--text-secondary)';
+            const p = {
+                github_token: document.getElementById('set-gh').value||null,
+                twitter_auth_token: document.getElementById('set-tw-auth').value||null,
+                twitter_ct0: document.getElementById('set-tw-ct0').value||null,
+                reddit_cookie: document.getElementById('set-rdt').value||null,
+                linkedin_li_at: document.getElementById('set-li-at').value||null
             };
-
             try {
-                const existing = JSON.parse(localStorage.getItem('agent_vault') || '{}');
-                Object.keys(payload).forEach(k => {
-                    if (payload[k]) existing[k] = payload[k];
-                });
-                
-                localStorage.setItem('agent_vault', JSON.stringify(existing));
-                
-                stat.innerText = 'Saved to Vault!';
-                stat.style.color = '#10b981';
-                
-                document.getElementById('set-gh').value = '';
-                document.getElementById('set-tw-auth').value = '';
-                document.getElementById('set-tw-ct0').value = '';
-                document.getElementById('set-rdt').value = '';
-                document.getElementById('set-li-at').value = '';
-                
+                const ex = JSON.parse(localStorage.getItem('agent_vault')||'{}');
+                Object.keys(p).forEach(k=>{ if(p[k]) ex[k]=p[k]; });
+                localStorage.setItem('agent_vault', JSON.stringify(ex));
+                s.innerText='Saved!'; s.style.color='#34a853';
+                ['set-gh','set-tw-auth','set-tw-ct0','set-rdt','set-li-at'].forEach(id=>document.getElementById(id).value='');
                 loadSettings();
-                setTimeout(() => { stat.innerText = ''; }, 3000);
-            } catch (e) {
-                stat.innerText = 'Storage Error';
-                stat.style.color = '#f43f5e';
-            }
+                setTimeout(()=>{ s.innerText=''; }, 3000);
+            } catch(e) { s.innerText='Error'; s.style.color='#ea4335'; }
         }
 
         async function uploadLinkedIn() {
-            const fileInput = document.getElementById('li-file');
-            const stat = document.getElementById('li-upload-status');
-            
-            if (!fileInput.files || fileInput.files.length === 0) {
-                stat.innerText = 'Select a ZIP file first';
-                stat.style.color = '#f43f5e';
-                return;
-            }
-            
-            const file = fileInput.files[0];
-            const formData = new FormData();
-            formData.append('file', file);
-            
-            stat.innerText = 'Uploading...';
-            stat.style.color = 'var(--text-muted)';
-            
+            const fi = document.getElementById('li-file');
+            const s = document.getElementById('li-upload-status');
+            if (!fi.files||fi.files.length===0) { s.innerText='Select a ZIP first'; s.style.color='#ea4335'; return; }
+            const fd = new FormData(); fd.append('file', fi.files[0]);
+            s.innerText='Uploading...'; s.style.color='var(--text-secondary)';
             try {
-                const res = await fetch('/api/settings/upload-linkedin', {
-                    method: 'POST',
-                    body: formData
-                });
-                
-                const data = await res.json();
-                if (res.ok) {
-                    stat.innerText = 'Synced Successfully!';
-                    stat.style.color = '#10b981';
-                    fileInput.value = '';
-                    setTimeout(() => { stat.innerText = ''; }, 3000);
-                } else {
-                    stat.innerText = 'Error: ' + data.detail;
-                    stat.style.color = '#f43f5e';
-                }
-            } catch (e) {
-                stat.innerText = 'Upload failed';
-                stat.style.color = '#f43f5e';
-            }
+                const r = await fetch('/api/settings/upload-linkedin',{method:'POST',body:fd});
+                const d = await r.json();
+                if(r.ok){s.innerText='Synced!';s.style.color='#34a853';fi.value='';setTimeout(()=>{s.innerText='';},3000);}
+                else{s.innerText='Error: '+d.detail;s.style.color='#ea4335';}
+            } catch(e){s.innerText='Upload failed';s.style.color='#ea4335';}
         }
 
-        // Initialize
         checkHealth();
         loadChannelStatuses();
         setInterval(checkHealth, 30000);
         setInterval(loadChannelStatuses, 60000);
         loadSettings();
-
     </script>
 </body>
 </html>
