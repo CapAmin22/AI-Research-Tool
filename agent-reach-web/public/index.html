@@ -83,10 +83,33 @@
         .sidebar-btn:hover { filter: brightness(1.1); }
         .sidebar-divider { border: none; border-top: 1px solid var(--border-subtle); margin: 1.25rem 0; }
 
-        .session-item { padding: 0.6rem; background: rgba(255,255,255,0.03); border-radius: 8px; margin-bottom: 8px; font-size: 0.85rem; cursor: pointer; border: 1px solid transparent; }
+        .session-item { padding: 0.6rem; background: rgba(255,255,255,0.03); border-radius: 8px; margin-bottom: 8px; font-size: 0.85rem; cursor: pointer; border: 1px solid transparent; display: flex; align-items: flex-start; justify-content: space-between; gap: 6px; }
         .session-item:hover { background: rgba(255,255,255,0.06); }
         .session-item.active { border-color: var(--accent); background: rgba(138,180,248,0.1); }
+        .session-info { flex: 1; min-width: 0; }
         .session-date { font-size: 0.7rem; color: var(--text-secondary); margin-top: 4px; }
+        .session-delete { background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 0.85rem; padding: 2px 4px; border-radius: 4px; flex-shrink: 0; opacity: 0; transition: opacity 0.15s; }
+        .session-item:hover .session-delete { opacity: 1; }
+        .session-delete:hover { color: #ea4335; background: rgba(234,67,53,0.15); }
+
+        /* Editable User Messages */
+        .msg-bubble-user { position: relative; }
+        .msg-edit-btn { position: absolute; top: 4px; right: -28px; background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 0.75rem; padding: 2px 4px; border-radius: 4px; opacity: 0; transition: opacity 0.15s; }
+        .msg-row.user-row:hover .msg-edit-btn { opacity: 1; }
+        .msg-edit-btn:hover { color: var(--accent); background: var(--bg-hover); }
+        .msg-edit-area { background: var(--bg-secondary); border: 1px solid var(--accent); color: var(--text-primary); padding: 0.6rem; border-radius: 12px; width: 100%; max-width: 75%; font-size: 0.95rem; font-family: var(--font); resize: none; outline: none; }
+        .msg-edit-actions { display: flex; gap: 6px; justify-content: flex-end; margin-top: 6px; }
+        .msg-edit-actions button { padding: 4px 12px; border-radius: 6px; border: none; cursor: pointer; font-size: 0.8rem; font-family: var(--font); }
+        .msg-edit-actions .edit-save { background: var(--accent); color: #131314; font-weight: 600; }
+        .msg-edit-actions .edit-cancel { background: var(--bg-hover); color: var(--text-secondary); }
+
+        /* Collapsible Vault */
+        .vault-toggle { display: flex; align-items: center; justify-content: space-between; cursor: pointer; user-select: none; }
+        .vault-toggle .chevron { transition: transform 0.2s; font-size: 0.75rem; color: var(--text-secondary); }
+        .vault-toggle .chevron.open { transform: rotate(180deg); }
+        .vault-body { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; }
+        .vault-body.open { max-height: 1200px; }
+        .cred-hint { font-size: 0.7rem; color: var(--text-secondary); margin: 2px 0 6px; line-height: 1.4; font-style: italic; }
 
         /* ── Main Chat ── */
         .main-chat { flex: 1; display: flex; flex-direction: column; }
@@ -192,18 +215,48 @@
 
                 <hr class="sidebar-divider">
 
-                <div class="sidebar-title">Credential Vault</div>
-                <p style="color:var(--text-secondary);font-size:0.78rem;margin-bottom:1rem;">Stored securely in Supabase DB.</p>
-                <div class="sidebar-group"><h4>LinkedIn li_at</h4><input type="password" id="set-li-at" placeholder="Paste li_at..."></div>
-                <div class="sidebar-group"><h4>Twitter Auth Token</h4><input type="password" id="set-tw-auth" placeholder="Paste auth_token..."></div>
-                <div class="sidebar-group"><h4>Twitter CT0</h4><input type="password" id="set-tw-ct0" placeholder="Paste ct0..."></div>
-                <div class="sidebar-group"><h4>Reddit Cookie</h4><input type="password" id="set-rdt" placeholder="Paste reddit_session..."></div>
-                <div class="sidebar-group"><h4>Instagram sessionid</h4><input type="password" id="set-ig" placeholder="Paste sessionid..."></div>
-                <div class="sidebar-group"><h4>Facebook Cookies</h4><input type="password" id="set-fb" placeholder="Paste c_user;xs..."></div>
+                <div class="vault-toggle" onclick="toggleVault()">
+                    <div class="sidebar-title" style="margin-bottom:0">Credential Vault</div>
+                    <span class="chevron" id="vault-chevron">▼</span>
+                </div>
+                <div class="vault-body" id="vault-body">
+                    <p style="color:var(--text-secondary);font-size:0.72rem;margin:0.75rem 0 1rem;">Stored securely in Supabase DB. Expand each field for instructions.</p>
 
-                <div style="margin-top:1rem;">
-                    <button class="sidebar-btn" onclick="saveSettings()">Save Credentials</button>
-                    <div id="settings-status" style="margin-top:6px;font-size:0.8rem;text-align:center;font-weight:500;"></div>
+                    <div class="sidebar-group">
+                        <h4>LinkedIn li_at</h4>
+                        <div class="cred-hint">Open LinkedIn → DevTools (F12) → Application → Cookies → linkedin.com → copy the <code>li_at</code> value.</div>
+                        <input type="password" id="set-li-at" placeholder="Paste li_at...">
+                    </div>
+                    <div class="sidebar-group">
+                        <h4>Twitter Auth Token</h4>
+                        <div class="cred-hint">Open X.com → DevTools (F12) → Application → Cookies → x.com → copy <code>auth_token</code>.</div>
+                        <input type="password" id="set-tw-auth" placeholder="Paste auth_token...">
+                    </div>
+                    <div class="sidebar-group">
+                        <h4>Twitter CT0</h4>
+                        <div class="cred-hint">Same as above. Copy the <code>ct0</code> cookie value from x.com cookies.</div>
+                        <input type="password" id="set-tw-ct0" placeholder="Paste ct0...">
+                    </div>
+                    <div class="sidebar-group">
+                        <h4>Reddit Cookie</h4>
+                        <div class="cred-hint">Open reddit.com → DevTools → Application → Cookies → copy <code>reddit_session</code>.</div>
+                        <input type="password" id="set-rdt" placeholder="Paste reddit_session...">
+                    </div>
+                    <div class="sidebar-group">
+                        <h4>Instagram sessionid</h4>
+                        <div class="cred-hint">Open instagram.com → DevTools → Application → Cookies → copy <code>sessionid</code>.</div>
+                        <input type="password" id="set-ig" placeholder="Paste sessionid...">
+                    </div>
+                    <div class="sidebar-group">
+                        <h4>Facebook Cookies</h4>
+                        <div class="cred-hint">Open facebook.com → DevTools → Application → Cookies → copy <code>c_user</code> and <code>xs</code>, separated by a semicolon.</div>
+                        <input type="password" id="set-fb" placeholder="Paste c_user;xs...">
+                    </div>
+
+                    <div style="margin-top:1rem;">
+                        <button class="sidebar-btn" onclick="saveSettings()">Save Credentials</button>
+                        <div id="settings-status" style="margin-top:6px;font-size:0.8rem;text-align:center;font-weight:500;"></div>
+                    </div>
                 </div>
             </div>
         </aside>
@@ -389,8 +442,20 @@
                         const d = new Date(s.created_at).toLocaleDateString();
                         const el = document.createElement('div');
                         el.className = `session-item ${s.id === currentSessionId ? 'active' : ''}`;
-                        el.onclick = () => loadSessionHistory(s.id);
-                        el.innerHTML = `<div>${s.title}</div><div class="session-date">${d}</div>`;
+                        
+                        const info = document.createElement('div');
+                        info.className = 'session-info';
+                        info.onclick = () => loadSessionHistory(s.id);
+                        info.innerHTML = `<div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${s.title}</div><div class="session-date">${d}</div>`;
+                        
+                        const del = document.createElement('button');
+                        del.className = 'session-delete';
+                        del.title = 'Delete session';
+                        del.innerHTML = '🗑';
+                        del.onclick = (e) => { e.stopPropagation(); deleteSession(s.id); };
+                        
+                        el.appendChild(info);
+                        el.appendChild(del);
                         list.appendChild(el);
                     });
                 }
@@ -409,7 +474,7 @@
                 if(data.messages) {
                     data.messages.forEach(m => {
                         if(m.role === 'user') {
-                            hist.innerHTML += `<div class="msg-row user-row"><div class="msg-bubble-user">${m.content}</div></div>`;
+                            hist.innerHTML += `<div class="msg-row user-row"><div class="msg-bubble-user">${m.content}<button class="msg-edit-btn" onclick="editMessage(this)" title="Edit">\u270f\ufe0f</button></div></div>`;
                         } else {
                             let html = marked.parse(m.content);
                             if(m.raw_data && m.raw_data.length > 0) {
@@ -427,6 +492,101 @@
         }
 
         function toggleSidebar() { document.getElementById('sidebar').classList.toggle('hidden'); }
+        function toggleVault() {
+            const body = document.getElementById('vault-body');
+            const chevron = document.getElementById('vault-chevron');
+            body.classList.toggle('open');
+            chevron.classList.toggle('open');
+        }
+
+        async function deleteSession(sid) {
+            if (!confirm('Delete this research session permanently?')) return;
+            try {
+                // Delete messages first, then the session
+                const supabaseAdmin = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: false } });
+                // Use authenticated client instead
+                await fetch(`/api/user/sessions/${sid}`, { method: 'DELETE', headers: getAuthHeader() });
+                if (currentSessionId === sid) newChat();
+                loadSessionsList();
+                showToast('Session deleted.');
+            } catch(e) { showToast('Failed to delete session.'); }
+        }
+
+        function editMessage(btn) {
+            const bubble = btn.parentElement;
+            const row = bubble.parentElement;
+            const originalText = bubble.childNodes[0].textContent;
+            
+            row.innerHTML = `
+                <div style="max-width:75%;width:100%;margin-left:auto;">
+                    <textarea class="msg-edit-area" rows="3">${originalText}</textarea>
+                    <div class="msg-edit-actions">
+                        <button class="edit-cancel" onclick="cancelEdit(this, '${originalText.replace(/'/g, "\\'")}')">Cancel</button>
+                        <button class="edit-save" onclick="resendEdited(this)">Save & Resend</button>
+                    </div>
+                </div>
+            `;
+            row.querySelector('textarea').focus();
+        }
+
+        function cancelEdit(btn, original) {
+            const row = btn.closest('.msg-row');
+            row.innerHTML = `<div class="msg-bubble-user">${original}<button class="msg-edit-btn" onclick="editMessage(this)" title="Edit">✏️</button></div>`;
+        }
+
+        async function resendEdited(btn) {
+            const row = btn.closest('.msg-row');
+            const newText = row.querySelector('textarea').value.trim();
+            if (!newText) return;
+            
+            // Replace with the new bubble
+            row.innerHTML = `<div class="msg-bubble-user">${newText}<button class="msg-edit-btn" onclick="editMessage(this)" title="Edit">✏️</button></div>`;
+            
+            // Remove all subsequent messages (everything after this row)
+            let next = row.nextElementSibling;
+            while (next) {
+                const toRemove = next;
+                next = next.nextElementSibling;
+                toRemove.remove();
+            }
+            
+            // Now resend this message to the API
+            const hist = document.getElementById('chat-history');
+            const lid = 'ld-' + Date.now();
+            hist.innerHTML += `<div class="msg-row agent-row" id="${lid}"><div class="msg-content-agent"><span class="loading-dots">Researching</span></div></div>`;
+            hist.scrollTop = hist.scrollHeight;
+            
+            try {
+                const reqBody = { message: newText, channels: selectedChannels };
+                if (currentSessionId) reqBody.session_id = currentSessionId;
+                const res = await fetch('/api/chat/multi', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+                    body: JSON.stringify(reqBody)
+                });
+                const data = await res.json();
+                if (data.session_id && currentSessionId !== data.session_id) {
+                    currentSessionId = data.session_id;
+                    loadSessionsList();
+                }
+                document.getElementById(lid).remove();
+                let html = '';
+                if (data.auth_required) { html = `<strong>Action Required:</strong> ${data.reply}`; }
+                else if (data.reply) { html = marked.parse(data.reply); }
+                else { html = 'Error: No response.'; }
+                if (data.data && data.data.length > 0) {
+                    data.data.forEach(d => {
+                        const safe = (d.output||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+                        html += `<details class="tool-data"><summary>View Raw Data: ${d.tool}</summary><div class="raw-output">${safe}</div></details>`;
+                    });
+                }
+                hist.innerHTML += `<div class="msg-row agent-row"><div class="msg-content-agent">${html}</div></div>`;
+                hist.scrollTop = hist.scrollHeight;
+            } catch(e) {
+                document.getElementById(lid).remove();
+                hist.innerHTML += `<div class="msg-row agent-row"><div class="msg-content-agent" style="color:#ea4335;">Error: ${e.message}</div></div>`;
+            }
+        }
         function toggleMultiSelect() { document.getElementById('multi-select-dropdown').classList.toggle('hidden'); }
 
         document.addEventListener('click', function(e) {
@@ -493,7 +653,7 @@
             inp.value = '';
             const hist = document.getElementById('chat-history');
 
-            hist.innerHTML += `<div class="msg-row user-row"><div class="msg-bubble-user">${msg}</div></div>`;
+            hist.innerHTML += `<div class="msg-row user-row"><div class="msg-bubble-user">${msg}<button class="msg-edit-btn" onclick="editMessage(this)" title="Edit">✏️</button></div></div>`;
             hist.scrollTop = hist.scrollHeight;
 
             const lid = 'ld-' + Date.now();

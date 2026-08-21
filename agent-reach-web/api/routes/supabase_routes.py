@@ -37,6 +37,16 @@ async def get_session_history(session_id: str, request: Request):
     res = supabase.table("messages").select("*").eq("session_id", session_id).order("created_at").execute()
     return {"messages": res.data}
 
+@router.delete("/sessions/{session_id}")
+async def delete_session(session_id: str, request: Request):
+    supabase, user_id = get_auth_client(request)
+    # Delete messages first (child records), then the session
+    supabase.table("messages").delete().eq("session_id", session_id).execute()
+    res = supabase.table("research_sessions").delete().eq("id", session_id).eq("user_id", user_id).execute()
+    if not res.data:
+        raise HTTPException(status_code=404, detail="Session not found or permission denied")
+    return {"success": True}
+
 @router.get("/vault")
 async def get_vault(request: Request):
     supabase, user_id = get_auth_client(request)
