@@ -19,7 +19,7 @@ def get_nvidia_client():
         raise HTTPException(status_code=400, detail="NVIDIA API key not configured on Vercel.")
     return OpenAI(
         base_url="https://integrate.api.nvidia.com/v1",
-        api_key=api_key
+        api_key=api_key.strip()
     )
 
 PUBLIC_TOOLS = [
@@ -243,4 +243,5 @@ async def chat_public(channel: str, req: ChatRequest, request: Request):
     except Exception as e:
         if "rate_limit" in str(e) or "429" in str(e):
             return {"reply": "The AI is currently experiencing high traffic (Rate Limit Reached). Please try again in a few minutes.", "data": []}
-        raise HTTPException(status_code=500, detail=str(e))
+        # Instead of throwing a 500, return the error gracefully so the UI displays it.
+        return {"reply": f"**Backend Error:** {str(e)}", "data": []}
