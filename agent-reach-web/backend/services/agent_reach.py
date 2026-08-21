@@ -267,21 +267,21 @@ def _parse_doctor_output(raw: str) -> list[Channel]:
 
     # English Translations Mapping (defined once, used in loop + post-loop)
     translations = {
-        "GitHub 仓库和代码": ("GitHub", "Search repositories and code. Run `gh auth login` if setup is needed."),
-        "YouTube 视频和字幕": ("YouTube", "Fetch videos and subtitles. yt-dlp is required."),
-        "V2EX 节点、主题与回复": ("V2EX", "Public API for topics and replies."),
-        "RSS/Atom 订阅源": ("RSS/Atom", "Read RSS/Atom feeds."),
-        "全网语义搜索": ("Web Search", "Semantic web search via Exa or Jina."),
-        "任意网页": ("Read Webpage", "Read any webpage via Jina Reader."),
-        "B站视频、字幕和搜索": ("Bilibili", "Bilibili video and subtitle search."),
-        "Twitter/X 推文": ("Twitter / X", "Read and search tweets."),
-        "Reddit 帖子和评论": ("Reddit", "Read Reddit posts and comments."),
-        "Facebook 帖子、主页和群组": ("Facebook", "Facebook posts and groups."),
-        "Instagram 用户、主页和指定用户帖子": ("Instagram", "Instagram profiles and posts."),
-        "小红书笔记": ("XiaoHongShu", "Xiaohongshu notes and search."),
-        "小宇宙播客转文字": ("Xiaoyuzhou Podcast", "Podcast transcription to text."),
-        "雪球股票行情与社区动态": ("Xueqiu", "Stock quotes and community."),
-        "LinkedIn 职业社交": ("LinkedIn", "Professional networking and profiles."),
+        "GitHub 仓库和代码": ("GitHub", "Search repositories, code, and developer profiles."),
+        "YouTube 视频和字幕": ("YouTube", "Fetch video metadata, transcripts, and subtitles."),
+        "V2EX 节点、主题与回复": ("V2EX", "Browse topics and replies on the V2EX tech forum."),
+        "RSS/Atom 订阅源": ("RSS/Atom", "Read blog and news feeds from any RSS source."),
+        "全网语义搜索": ("Web Search", "Search the internet for any topic in real time."),
+        "任意网页": ("Read Webpage", "Read and extract text content from any public URL."),
+        "B站视频、字幕和搜索": ("Bilibili", "Search videos and subtitles on Bilibili."),
+        "Twitter/X 推文": ("Twitter / X", "Search and read tweets and trending topics."),
+        "Reddit 帖子和评论": ("Reddit", "Read posts, comments, and community discussions."),
+        "Facebook 帖子、主页和群组": ("Facebook", "Access public posts, pages, and group content."),
+        "Instagram 用户、主页和指定用户帖子": ("Instagram", "View public profiles and post content."),
+        "小红书笔记": ("Xiaohongshu", "Search notes and posts on Xiaohongshu (RedNote)."),
+        "小宇宙播客转文字": ("Xiaoyuzhou Podcast", "Transcribe podcast episodes into searchable text."),
+        "雪球股票行情与社区动态": ("Xueqiu", "Fetch stock quotes and financial community posts."),
+        "LinkedIn 职业社交": ("LinkedIn", "Look up professional profiles and career data."),
     }
 
     for line in cleaned.splitlines():
@@ -307,8 +307,8 @@ def _parse_doctor_output(raw: str) -> list[Channel]:
         for marker in ("✅", "[!]", "[X]"):
             name_part = name_part.replace(marker, "").strip()
             
-        # Filter out headers that look like channels
-        if name_part.startswith("图例") or name_part.startswith("装好即用") or name_part.startswith("可选渠道"):
+        # Filter out headers that look like channels (Chinese or English)
+        if name_part.startswith("图例") or name_part.startswith("装好即用") or name_part.startswith("可选渠道") or name_part.startswith("Legend") or name_part.startswith("Ready") or name_part.startswith("Optional"):
             continue
             
         if len(parts) == 2:

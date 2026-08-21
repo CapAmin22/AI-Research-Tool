@@ -135,8 +135,9 @@
         <!-- Dashboard View -->
         <div id="view-dashboard" class="view-section active">
             <div class="card">
-                <h3 class="card-title">Channel Status <button onclick="loadDashboard()" style="float: right; background:none; border:1px solid var(--border-subtle); color:white; border-radius:4px; cursor:pointer; padding: 2px 8px;">Refresh</button></h3>
-                <div id="dashboard-loading" style="color: var(--text-muted);">Running diagnostics...</div>
+                <h3 class="card-title">Research Channels <button onclick="loadDashboard()" style="float: right; background:none; border:1px solid var(--border-subtle); color:white; border-radius:4px; cursor:pointer; padding: 2px 8px;">Refresh</button></h3>
+                <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0; margin-bottom: 1rem;">Each channel is a data source you can use for research. Click any channel to open its AI research agent.</p>
+                <div id="dashboard-loading" style="color: var(--text-muted);">Checking channel availability...</div>
                 <div class="channel-grid" id="channel-grid"></div>
             </div>
         </div>
@@ -159,9 +160,9 @@
                 
                 <!-- Data Panel -->
                 <div class="card" style="flex: 1; display: flex; flex-direction: column; margin-bottom: 0;">
-                    <h3 class="card-title">Scraped Data context</h3>
+                    <h3 class="card-title">Research Data</h3>
                     <div id="chat-data" style="flex: 1; overflow-y: auto; border: 1px solid var(--border-subtle); border-radius: 8px; padding: 1rem; background: rgba(0,0,0,0.2); font-family: monospace; font-size: 0.85rem; white-space: pre-wrap; word-break: break-all;">
-                        <div style="color: var(--text-muted);">Raw scraped data will appear here as I use my tools.</div>
+                        <div style="color: var(--text-muted);">Raw data fetched by the agent will appear here as it runs its tools.</div>
                     </div>
                 </div>
             </div>
@@ -224,7 +225,7 @@
                 <p style="color: var(--text-muted); font-size: 0.9rem;">Configure your keys and cookies here. Once saved, they are stored securely on your server.</p>
                 
                 <div style="margin-top: 1.5rem;">
-                    <h4 style="margin-bottom: 0.5rem;">Groq API Key (For Xiaoyuzhou Podcasts)</h4>
+                    <h4 style="margin-bottom: 0.5rem;">Groq API Key (Powers AI Research Agents)</h4>
                     <input type="password" id="set-groq" placeholder="gsk_...">
                 </div>
 
@@ -299,6 +300,35 @@
             }
         }
 
+        // --- Channel Info Map (Pure English) ---
+        const CHANNEL_INFO = {
+            'github':      { name: 'GitHub',        desc: 'Search repositories, code, and developer profiles.',     use: 'Research open-source projects and codebases' },
+            'youtube':     { name: 'YouTube',       desc: 'Fetch video metadata, transcripts, and subtitles.',       use: 'Analyze video content and extract insights' },
+            'web search':  { name: 'Web Search',    desc: 'Search the internet for any topic in real time.',         use: 'Find articles, news, and general information' },
+            'read webpage':{ name: 'Read Webpage',  desc: 'Read and extract text content from any public URL.',      use: 'Scrape and summarize web page content' },
+            'rss/atom':    { name: 'RSS / Atom',    desc: 'Read blog and news feeds from any RSS source.',           use: 'Monitor publications and track updates' },
+            'linkedin':    { name: 'LinkedIn',      desc: 'Look up professional profiles and career data.',          use: 'Research people, companies, and job markets' },
+            'twitter / x': { name: 'Twitter / X',   desc: 'Search and read tweets and trending topics.',             use: 'Track discussions and public sentiment' },
+            'reddit':      { name: 'Reddit',        desc: 'Read posts, comments, and community discussions.',        use: 'Explore community opinions and niche topics' },
+            'facebook':    { name: 'Facebook',      desc: 'Access public posts, pages, and group content.',          use: 'Research public social media activity' },
+            'instagram':   { name: 'Instagram',     desc: 'View public profiles and post content.',                  use: 'Research influencer and brand activity' },
+            'v2ex':        { name: 'V2EX Forum',    desc: 'Browse topics and replies on the V2EX tech forum.',       use: 'Research developer community discussions' },
+            'bilibili':    { name: 'Bilibili',      desc: 'Search videos and subtitles on Bilibili.',                use: 'Research video content on Bilibili' },
+            'xiaohongshu': { name: 'Xiaohongshu',   desc: 'Search notes and posts on Xiaohongshu (RedNote).',       use: 'Research lifestyle and consumer trends' },
+            'xiaoyuzhou podcast': { name: 'Podcast Transcription', desc: 'Transcribe podcast episodes into text.', use: 'Convert audio content to searchable text' },
+            'xueqiu':      { name: 'Xueqiu Finance',desc: 'Fetch stock quotes and financial community posts.',      use: 'Research market sentiment and stock data' },
+        };
+
+        function resolveChannel(ch) {
+            const key = (ch.name || '').toLowerCase().trim();
+            const info = CHANNEL_INFO[key];
+            if (info) {
+                return { name: info.name, desc: info.desc, use: info.use, status: ch.status };
+            }
+            // Fallback: clean up any remaining non-English
+            return { name: ch.name, desc: ch.description || 'Data channel', use: 'General research', status: ch.status };
+        }
+
         // --- Dashboard Data ---
         async function loadDashboard() {
             document.getElementById('dashboard-loading').style.display = 'block';
@@ -312,27 +342,27 @@
                 
                 let html = '';
                 data.channels.forEach(ch => {
+                    const resolved = resolveChannel(ch);
                     let badgeClass = 'warn';
                     let badgeText = 'NEEDS SETUP';
-                    if (ch.status === 'ok') { badgeClass = 'ok'; badgeText = 'ACTIVE'; }
-                    if (ch.status === 'not_installed') { badgeClass = 'error'; badgeText = 'NOT INSTALLED'; }
+                    if (resolved.status === 'ok') { badgeClass = 'ok'; badgeText = 'ACTIVE'; }
+                    if (resolved.status === 'not_installed') { badgeClass = 'error'; badgeText = 'NOT INSTALLED'; }
                     
-                    // Make all channels clickable to open the Chatbot
-                    let extraAttr = `onclick="openChat('${ch.name}')"`;
-                    let cursorStyle = 'pointer';
+                    let extraAttr = `onclick="openChat('${resolved.name}')"`;
 
                     html += `
-                        <div class="channel-item" ${extraAttr} style="cursor: ${cursorStyle}">
+                        <div class="channel-item" ${extraAttr} style="cursor: pointer">
                             <span class="badge ${badgeClass}">${badgeText}</span>
-                            <div class="channel-name">${ch.name}</div>
-                            <div style="font-size: 0.8rem; color: var(--text-muted)">${ch.description || 'No description'}</div>
+                            <div class="channel-name">${resolved.name}</div>
+                            <div style="font-size: 0.8rem; color: var(--text-muted)">${resolved.desc}</div>
+                            <div style="font-size: 0.75rem; color: var(--accent); margin-top: 4px;">Use for: ${resolved.use}</div>
                         </div>
                     `;
                 });
                 document.getElementById('channel-grid').innerHTML = html;
 
             } catch (e) {
-                document.getElementById('dashboard-loading').innerText = 'Failed to load data.';
+                document.getElementById('dashboard-loading').innerText = 'Failed to load channel data. Check your connection.';
             }
         }
 
@@ -367,8 +397,8 @@
             document.getElementById('view-chat').classList.add('active');
             
             // Clear history
-            document.getElementById('chat-history').innerHTML = `<div style="color: var(--text-muted);">I am your specialized ${channelName} agent. What would you like to research?</div>`;
-            document.getElementById('chat-data').innerHTML = `<div style="color: var(--text-muted);">Raw scraped data will appear here.</div>`;
+            document.getElementById('chat-history').innerHTML = `<div style="color: var(--text-muted);">I am your ${channelName} research agent. Ask me anything and I will fetch real data for you.</div>`;
+            document.getElementById('chat-data').innerHTML = `<div style="color: var(--text-muted);">Data fetched by the agent will appear here.</div>`;
         }
         
         async function sendChat() {
@@ -385,7 +415,7 @@
             
             // Show loading
             const loadingId = 'load-' + Date.now();
-            hist.innerHTML += `<div id="${loadingId}" style="margin: 10px 0; color: var(--text-muted);">Agent is thinking and scraping...</div>`;
+            hist.innerHTML += `<div id="${loadingId}" style="margin: 10px 0; color: var(--text-muted);">Agent is researching — fetching data from the channel...</div>`;
             hist.scrollTop = hist.scrollHeight;
             
             try {
