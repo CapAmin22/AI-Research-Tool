@@ -219,6 +219,14 @@
             font-weight: bold;
             cursor: pointer;
             outline: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+        }
+        
+        .channel-selector option {
+            background: var(--bg-sidebar);
+            color: var(--text-primary);
         }
 
         .chat-input {
@@ -284,10 +292,6 @@
                 <p style="color: var(--text-muted); font-size: 0.8rem; margin-top: 0;">Store credentials to enable human authentication for agents.</p>
                 
                 <div class="settings-group">
-                    <h4>NVIDIA API Key</h4>
-                    <input type="password" id="set-groq" placeholder="nvapi-...">
-                </div>
-                <div class="settings-group">
                     <h4>GitHub Token</h4>
                     <input type="password" id="set-gh" placeholder="ghp_...">
                 </div>
@@ -336,16 +340,8 @@
             <div class="chat-input-container">
                 <div class="input-wrapper">
                     <select class="channel-selector" id="channel-select">
-                        <option value="default">Base Assistant (Default)</option>
-                        <option value="web search">Web Search Agent</option>
-                        <option value="youtube">YouTube Agent</option>
-                        <option value="read webpage">Read Webpage Agent</option>
-                        <option value="rss/atom">RSS / Atom Agent</option>
-                        <option value="podcast transcription">Podcast Transcription Agent</option>
-                        <option value="github">GitHub Agent</option>
-                        <option value="linkedin">LinkedIn Agent</option>
-                        <option value="twitter / x">Twitter / X Agent (Soon)</option>
-                        <option value="reddit">Reddit Agent (Soon)</option>
+                        <option value="default">🟢 Base Assistant (Default)</option>
+                        <!-- Populated dynamically by loadChannelStatuses() -->
                     </select>
                     
                     <input type="text" class="chat-input" id="chat-input" placeholder="Message Agent Reach..." onkeypress="if(event.key === 'Enter') sendChat()">
@@ -365,6 +361,65 @@
     <script>
         function toggleSidebar() {
             document.getElementById('sidebar').classList.toggle('hidden');
+        }
+
+        // --- Status and Channels Logic ---
+        const CHANNEL_INFO = {
+            'github':                { name: 'GitHub Agent',                val: 'github' },
+            'youtube':               { name: 'YouTube Agent',               val: 'youtube' },
+            'web search':            { name: 'Web Search Agent',            val: 'web search' },
+            'read webpage':          { name: 'Read Webpage Agent',          val: 'read webpage' },
+            'rss/atom':              { name: 'RSS / Atom Agent',            val: 'rss/atom' },
+            'podcast transcription': { name: 'Podcast Transcription Agent', val: 'podcast transcription' },
+            'linkedin':              { name: 'LinkedIn Agent',              val: 'linkedin' }
+        };
+        
+        const COMING_SOON_CHANNELS = [
+            { name: 'Twitter / X Agent (Soon)', val: 'twitter / x' },
+            { name: 'Reddit Agent (Soon)', val: 'reddit' },
+            { name: 'Facebook Agent (Soon)', val: 'facebook' },
+            { name: 'Instagram Agent (Soon)', val: 'instagram' }
+        ];
+
+        const HIDDEN_CHANNELS = new Set(['v2ex', 'bilibili', 'xiaohongshu', 'xueqiu', 'xiaoyuzhou podcast', 'v2ex forum', 'xueqiu finance']);
+
+        async function loadChannelStatuses() {
+            try {
+                const res = await fetch('/api/status/doctor');
+                const data = await res.json();
+                
+                const selectEl = document.getElementById('channel-select');
+                // Keep the default option
+                selectEl.innerHTML = '<option value="default">🟢 Base Assistant (Default)</option>';
+                
+                const statusMap = {};
+                data.channels.forEach(ch => {
+                    const key = (ch.name || '').toLowerCase().trim();
+                    statusMap[key] = ch.status;
+                });
+
+                // Add active global channels
+                Object.keys(CHANNEL_INFO).forEach(key => {
+                    if (HIDDEN_CHANNELS.has(key)) return;
+                    
+                    const info = CHANNEL_INFO[key];
+                    const backendStatus = statusMap[key] || 'ok'; // Default to ok if not explicitly failing
+                    
+                    let icon = '🔴';
+                    if (backendStatus === 'ok') icon = '🟢';
+                    else if (backendStatus === 'not_installed') icon = '🔴';
+                    
+                    selectEl.innerHTML += `<option value="${info.val}">${icon} ${info.name}</option>`;
+                });
+                
+                // Add coming soon channels
+                COMING_SOON_CHANNELS.forEach(ch => {
+                    selectEl.innerHTML += `<option value="${ch.val}">🟡 ${ch.name}</option>`;
+                });
+                
+            } catch (e) {
+                console.error("Failed to load channel statuses", e);
+            }
         }
 
         // --- Health Check ---
@@ -464,7 +519,6 @@
         function loadSettings() {
             try {
                 const existing = JSON.parse(localStorage.getItem('agent_vault') || '{}');
-                if(existing.groq_key) document.getElementById('set-groq').placeholder = '******** (Saved in Vault)';
                 if(existing.github_token) document.getElementById('set-gh').placeholder = '******** (Saved in Vault)';
                 if(existing.twitter_auth_token) document.getElementById('set-tw-auth').placeholder = '******** (Saved in Vault)';
                 if(existing.twitter_ct0) document.getElementById('set-tw-ct0').placeholder = '******** (Saved in Vault)';
@@ -479,7 +533,6 @@
             stat.style.color = 'var(--text-muted)';
             
             const payload = {
-                groq_key: document.getElementById('set-groq').value || null,
                 github_token: document.getElementById('set-gh').value || null,
                 twitter_auth_token: document.getElementById('set-tw-auth').value || null,
                 twitter_ct0: document.getElementById('set-tw-ct0').value || null,
@@ -498,7 +551,6 @@
                 stat.innerText = 'Saved to Vault!';
                 stat.style.color = '#10b981';
                 
-                document.getElementById('set-groq').value = '';
                 document.getElementById('set-gh').value = '';
                 document.getElementById('set-tw-auth').value = '';
                 document.getElementById('set-tw-ct0').value = '';
@@ -554,7 +606,9 @@
 
         // Initialize
         checkHealth();
+        loadChannelStatuses();
         setInterval(checkHealth, 30000);
+        setInterval(loadChannelStatuses, 60000);
         loadSettings();
 
     </script>
