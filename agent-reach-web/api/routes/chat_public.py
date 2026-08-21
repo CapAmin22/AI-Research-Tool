@@ -113,13 +113,48 @@ PUBLIC_TOOLS = [
 
 async def execute_search_web(query: str) -> str:
     try:
-        from duckduckgo_search import DDGS
-        results = DDGS().text(query, max_results=10)
-        if not results:
-            return "Search failed: No results found."
-        return json.dumps(results)
+        # Bypass duckduckgo_search library which fails on Vercel IPs.
+        # Use httpx to scrape the HTML endpoint directly.
+        url = "https://html.duckduckgo.com/html/"
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+            "Origin": "https://duckduckgo.com",
+            "Referer": "https://duckduckgo.com/",
+        }
+        data = {"q": query}
+        
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(url, data=data, headers=headers, timeout=15.0)
+            
+            results = []
+            import re
+            pattern = r'<a class="result__url" href="([^"]+)".*?>(.*?)</a>.*?<a class="result__snippet[^>]*>(.*?)</a>'
+            matches = re.findall(pattern, resp.text, re.IGNORECASE | re.DOTALL)
+            
+            for u, t, s in matches[:10]:
+                u = u.strip()
+                t = re.sub(r'<[^>]+>', '', t).strip()
+                s = re.sub(r'<[^>]+>', '', s).strip()
+                
+                # Extract real URL from DDG redirect
+                if u.startswith("//duckduckgo.com/l/?uddg="):
+                    import urllib.parse
+                    u = urllib.parse.unquote(u.split("uddg=")[1].split("&")[0])
+                elif u.startswith("/l/?uddg="):
+                    import urllib.parse
+                    u = urllib.parse.unquote(u.split("uddg=")[1].split("&")[0])
+                    
+                results.append({"title": t, "url": u, "body": s})
+                
+            if not results:
+                # Fallback to the VM if local Vercel execution fails entirely
+                return await execute_tool_on_vm("search_web", {"query": query})
+                
+            return json.dumps(results)
     except Exception as e:
-        return f"Search error: {str(e)}"
+        # Fallback to VM on any network error
+        return await execute_tool_on_vm("search_web", {"query": query})
 
 async def execute_tool_on_vm(tool_name: str, args: dict, vault_cookies: str = "") -> str:
     settings = get_settings()
