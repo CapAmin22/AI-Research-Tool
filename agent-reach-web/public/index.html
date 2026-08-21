@@ -220,13 +220,14 @@
         <aside class="sidebar hidden" id="sidebar">
             <div class="sidebar-content">
                 <div class="sidebar-title">Credential Vault</div>
-                <p style="color:var(--text-secondary);font-size:0.78rem;margin-bottom:1rem;">Store auth tokens so agents can access gated platforms.</p>
+                <p style="color:var(--text-secondary);font-size:0.78rem;margin-bottom:1rem;">Store browser cookies &amp; session tokens so agents can authenticate like a real user on gated platforms.</p>
 
-                <div class="sidebar-group"><h4>GitHub Token</h4><input type="password" id="set-gh" placeholder="ghp_..."></div>
-                <div class="sidebar-group"><h4>Twitter/X Auth Token</h4><input type="password" id="set-tw-auth" placeholder="auth_token cookie..."></div>
-                <div class="sidebar-group"><h4>Twitter/X CT0</h4><input type="password" id="set-tw-ct0" placeholder="ct0 cookie..."></div>
-                <div class="sidebar-group"><h4>Reddit Cookie</h4><input type="password" id="set-rdt" placeholder="reddit_session cookie..."></div>
-                <div class="sidebar-group"><h4>LinkedIn li_at Cookie</h4><input type="password" id="set-li-at" placeholder="li_at cookie..."></div>
+                <div class="sidebar-group"><h4>LinkedIn li_at Cookie</h4><input type="password" id="set-li-at" placeholder="Paste li_at cookie from browser..."></div>
+                <div class="sidebar-group"><h4>Twitter/X Auth Token</h4><input type="password" id="set-tw-auth" placeholder="Paste auth_token cookie..."></div>
+                <div class="sidebar-group"><h4>Twitter/X CT0</h4><input type="password" id="set-tw-ct0" placeholder="Paste ct0 cookie..."></div>
+                <div class="sidebar-group"><h4>Reddit Session Cookie</h4><input type="password" id="set-rdt" placeholder="Paste reddit_session cookie..."></div>
+                <div class="sidebar-group"><h4>Instagram sessionid</h4><input type="password" id="set-ig" placeholder="Paste sessionid cookie..."></div>
+                <div class="sidebar-group"><h4>Facebook c_user / xs</h4><input type="password" id="set-fb" placeholder="Paste c_user;xs cookies..."></div>
 
                 <div style="margin-top:1rem;">
                     <button class="sidebar-btn" onclick="saveSettings()">Save Credentials</button>
@@ -323,11 +324,19 @@
                 const sm = {};
                 data.channels.forEach(ch => { sm[(ch.name||'').toLowerCase().trim()] = ch.status; });
 
+                // Agents that run on Vercel (always available — no VM dependency)
+                const VERCEL_NATIVE = new Set(['web search', 'read webpage', 'rss/atom', 'reddit', 'twitter / x', 'instagram', 'facebook']);
+
                 Object.keys(CHANNEL_INFO).forEach(key => {
                     if (HIDDEN_CHANNELS.has(key)) return;
                     const info = CHANNEL_INFO[key];
-                    const st = sm[key] || 'ok';
-                    const icon = st === 'ok' ? '🟢' : '🔴';
+                    let icon;
+                    if (VERCEL_NATIVE.has(key)) {
+                        icon = '🟢'; // Always available via Vercel search_web
+                    } else {
+                        const st = sm[key] || 'ok';
+                        icon = st === 'ok' ? '🟢' : '🔴';
+                    }
                     const chk = selectedChannels.includes(info.val) ? 'checked' : '';
                     el.innerHTML += `<label><input type="checkbox" value="${info.val}" onchange="handleChannelSelect()" ${chk}> ${icon} ${info.name}</label>`;
                 });
@@ -397,11 +406,12 @@
         function loadSettings() {
             try {
                 const v = JSON.parse(localStorage.getItem('agent_vault') || '{}');
-                if(v.github_token) document.getElementById('set-gh').placeholder='●●●●●●●● (Saved)';
+                if(v.linkedin_li_at) document.getElementById('set-li-at').placeholder='●●●●●●●● (Saved)';
                 if(v.twitter_auth_token) document.getElementById('set-tw-auth').placeholder='●●●●●●●● (Saved)';
                 if(v.twitter_ct0) document.getElementById('set-tw-ct0').placeholder='●●●●●●●● (Saved)';
                 if(v.reddit_cookie) document.getElementById('set-rdt').placeholder='●●●●●●●● (Saved)';
-                if(v.linkedin_li_at) document.getElementById('set-li-at').placeholder='●●●●●●●● (Saved)';
+                if(v.instagram_sessionid) document.getElementById('set-ig').placeholder='●●●●●●●● (Saved)';
+                if(v.facebook_cookies) document.getElementById('set-fb').placeholder='●●●●●●●● (Saved)';
             } catch(e){}
         }
 
@@ -409,18 +419,19 @@
             const s = document.getElementById('settings-status');
             s.innerText='Saving...'; s.style.color='var(--text-secondary)';
             const p = {
-                github_token: document.getElementById('set-gh').value||null,
+                linkedin_li_at: document.getElementById('set-li-at').value||null,
                 twitter_auth_token: document.getElementById('set-tw-auth').value||null,
                 twitter_ct0: document.getElementById('set-tw-ct0').value||null,
                 reddit_cookie: document.getElementById('set-rdt').value||null,
-                linkedin_li_at: document.getElementById('set-li-at').value||null
+                instagram_sessionid: document.getElementById('set-ig').value||null,
+                facebook_cookies: document.getElementById('set-fb').value||null
             };
             try {
                 const ex = JSON.parse(localStorage.getItem('agent_vault')||'{}');
                 Object.keys(p).forEach(k=>{ if(p[k]) ex[k]=p[k]; });
                 localStorage.setItem('agent_vault', JSON.stringify(ex));
                 s.innerText='Saved!'; s.style.color='#34a853';
-                ['set-gh','set-tw-auth','set-tw-ct0','set-rdt','set-li-at'].forEach(id=>document.getElementById(id).value='');
+                ['set-li-at','set-tw-auth','set-tw-ct0','set-rdt','set-ig','set-fb'].forEach(id=>document.getElementById(id).value='');
                 loadSettings();
                 setTimeout(()=>{ s.innerText=''; }, 3000);
             } catch(e) { s.innerText='Error'; s.style.color='#ea4335'; }
