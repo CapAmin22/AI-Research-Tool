@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from api.routes.chat_linkedin import router as chat_linkedin_router
 from api.routes.chat_public import router as chat_public_router
+from api.routes.supabase_routes import router as supabase_router
 from api.config import get_settings
 
 settings = get_settings()
@@ -24,6 +25,7 @@ app.add_middleware(
 # Mount API routers
 app.include_router(chat_linkedin_router, prefix="/api")
 app.include_router(chat_public_router, prefix="/api")
+app.include_router(supabase_router, prefix="/api")
 
 @app.get("/api/health")
 def health_check():

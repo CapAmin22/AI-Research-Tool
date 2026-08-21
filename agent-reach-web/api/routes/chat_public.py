@@ -13,6 +13,7 @@ router = APIRouter(prefix="/chat", tags=["Chat"])
 class ChatRequest(BaseModel):
     message: str
     channels: list[str] = []
+    session_id: str | None = None
 
 def get_nvidia_client():
     settings = get_settings()
@@ -179,6 +180,27 @@ async def execute_tool_on_vm(tool_name: str, args: dict, vault_cookies: str = ""
 @router.post("/multi")
 async def chat_multi(req: ChatRequest, request: Request):
     vault_cookies = request.headers.get("x-vault-cookies", "")
+    access_token = request.headers.get("Authorization", "").replace("Bearer ", "")
+    
+    supabase = None
+    user_id = None
+    if access_token:
+        try:
+            from api.utils.supabase import get_supabase_client
+            supabase = get_supabase_client(access_token)
+            user_response = supabase.auth.get_user(access_token)
+            user_id = user_response.user.id
+        except Exception as e:
+            print(f"Supabase init error: {e}")
+            
+    # Ensure session_id exists if authenticated
+    if supabase and user_id and not req.session_id:
+        title = req.message[:50] + "..." if len(req.message) > 50 else req.message
+        try:
+            res = supabase.table("research_sessions").insert({"user_id": user_id, "title": title}).execute()
+            req.session_id = res.data[0]["id"]
+        except Exception as e:
+            print(f"Failed to create session: {e}")
     
     # ALL channels are now active — social channels route through search_web with site-specific queries
     ALL_CHANNELS = [
@@ -273,9 +295,32 @@ ALWAYS include the source name, publication time, and a clickable URL alongside 
             tools_to_use = None
 
     messages = [
-        {"role": "system", "content": system_content},
-        {"role": "user", "content": req.message}
+        {"role": "system", "content": system_content}
     ]
+    
+    # Load past messages from Supabase if session exists
+    if supabase and req.session_id:
+        try:
+            res = supabase.table("messages").select("*").eq("session_id", req.session_id).order("created_at").execute()
+            for msg in res.data:
+                # Basic mapping to OpenAI format
+                messages.append({"role": msg["role"], "content": msg["content"]})
+        except Exception as e:
+            print(f"Error loading chat history: {e}")
+            
+    # Add the new user message
+    messages.append({"role": "user", "content": req.message})
+    
+    # Save the user message to Supabase
+    if supabase and req.session_id:
+        try:
+            supabase.table("messages").insert({
+                "session_id": req.session_id,
+                "role": "user",
+                "content": req.message
+            }).execute()
+        except Exception as e:
+            print(f"Error saving user message: {e}")
     
     def call_llm(messages_list, disable_tools=False):
         try:
@@ -321,9 +366,24 @@ ALWAYS include the source name, publication time, and a clickable URL alongside 
             
             if disable_tools or not response_message.tool_calls:
                 # Agent provided a text response, or we forced it to stop
+                final_reply = response_message.content or "The assistant reached the maximum tool attempts but returned empty text. Please view the raw data below."
+                
+                # Save assistant response to Supabase
+                if supabase and req.session_id:
+                    try:
+                        supabase.table("messages").insert({
+                            "session_id": req.session_id,
+                            "role": "assistant",
+                            "content": final_reply,
+                            "raw_data": scraped_data
+                        }).execute()
+                    except Exception as e:
+                        print(f"Error saving assistant message: {e}")
+                        
                 return {
-                    "reply": response_message.content or "The assistant reached the maximum tool attempts but returned empty text. Please view the raw data below.",
-                    "data": scraped_data if scraped_data else None
+                    "reply": final_reply,
+                    "data": scraped_data if scraped_data else None,
+                    "session_id": req.session_id
                 }
                 
             messages.append(response_message.model_dump(exclude_unset=True))
@@ -359,10 +419,23 @@ ALWAYS include the source name, publication time, and a clickable URL alongside 
                 
                 scraped_data.append({"tool": tool_name, "output": tool_output})
                 
-        # Fallback if loop exits (though it shouldn't because disable_tools=True on last iteration)
+        # Fallback if loop exits
+        final_reply = "The assistant reached the maximum number of tool execution steps."
+        if supabase and req.session_id:
+            try:
+                supabase.table("messages").insert({
+                    "session_id": req.session_id,
+                    "role": "assistant",
+                    "content": final_reply,
+                    "raw_data": scraped_data
+                }).execute()
+            except Exception as e:
+                pass
+                
         return {
-            "reply": "The assistant reached the maximum number of tool execution steps.",
-            "data": scraped_data
+            "reply": final_reply,
+            "data": scraped_data,
+            "session_id": req.session_id
         }
         
     except Exception as e:
