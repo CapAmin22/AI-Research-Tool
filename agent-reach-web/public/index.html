@@ -265,7 +265,7 @@
         async function loadPublicSession(sid) {
             document.getElementById('chat-history').innerHTML = '<div style="text-align:center;padding:2rem;color:var(--text-secondary);">Loading public research report...</div>';
             try {
-                const res = await fetch(`/api/public/sessions/${sid}`);
+                const res = await fetch(`/api/user/public/sessions/${sid}`);
                 if (!res.ok) throw new Error("This session is private or does not exist.");
                 const data = await res.json();
                 
@@ -290,7 +290,7 @@
         async function shareSession() {
             if (!currentSessionId) { alert("Please select or start a chat session first."); return; }
             try {
-                const res = await fetch(`/api/sessions/${currentSessionId}/share`, { method: 'POST', headers: getAuthHeader() });
+                const res = await fetch(`/api/user/sessions/${currentSessionId}/share`, { method: 'POST', headers: getAuthHeader() });
                 const data = await res.json();
                 if (data.share_url) {
                     const fullUrl = window.location.origin + data.share_url;
