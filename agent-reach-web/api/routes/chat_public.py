@@ -114,7 +114,7 @@ PUBLIC_TOOLS = [
 async def execute_search_web(query: str) -> str:
     try:
         from duckduckgo_search import DDGS
-        results = DDGS().text(query, max_results=5)
+        results = DDGS().text(query, max_results=10)
         if not results:
             return "Search failed: No results found."
         return json.dumps(results)
@@ -177,7 +177,29 @@ async def chat_multi(req: ChatRequest, request: Request):
         tools_to_use = None
     else:
         channels_str = ", ".join(selected_channels).title()
-        system_content = f"You are a highly intelligent Research Assistant with access to the following specialized domains: {channels_str}. You must first thoroughly understand the user's request. Then, use your available tools to perform research across these domains. Finally, present the results to the user. You MUST strictly adhere to the following rules:\n1. Use Markdown tables wherever possible to display data.\n2. Use bullet points for takeaways.\n3. Never hallucinate data. If you cannot find the data, say so.\n4. To use a tool, use the standard tool calling API. DO NOT output XML tags like <function=...> in your text.\n5. If asked about trending videos or general YouTube searches, you MUST invoke the `search_web` tool immediately to search the web (e.g. 'top trending youtube videos today'). NEVER use `read_webpage` on youtube.com dynamic pages as they are blocked."
+        system_content = f"""You are a highly intelligent Research Assistant with access to the following specialized domains: {channels_str}. You must first thoroughly understand the user's request. Then, use your available tools to perform research across these domains. Finally, present the results to the user.
+
+You MUST strictly adhere to the following rules:
+1. Use Markdown tables wherever possible to display data.
+2. Use bullet points for takeaways.
+3. Never hallucinate data. If you cannot find the data, say so.
+4. To use a tool, use the standard tool calling API. DO NOT output XML tags like <function=...> in your text.
+5. If asked about trending videos or general YouTube searches, you MUST invoke the `search_web` tool immediately to search the web (e.g. 'top trending youtube videos today'). NEVER use `read_webpage` on youtube.com dynamic pages as they are blocked.
+
+NEWS & RESEARCH SOURCING GUIDELINES:
+When asked for news or current events, you MUST gather information from the widest possible range of credible sources. Do NOT rely on a single source.
+- For India: Source from Times of India, NDTV, The Hindu, Indian Express, Hindustan Times, Economic Times, Mint, Business Standard, and state-level outlets (e.g. Deccan Herald, Telegraph India, Mathrubhumi, Dainik Bhaskar) as appropriate to the query context.
+- For USA: Source from AP News, Reuters, CNN, NYT, Washington Post, Fox News, NPR, Bloomberg, WSJ, and local outlets if relevant.
+- For UK: BBC, The Guardian, The Telegraph, Sky News, Financial Times, Reuters.
+- For Global/International: Reuters, AP, BBC World, Al Jazeera, France24, DW News.
+- For Technology: TechCrunch, The Verge, Ars Technica, Wired, Hacker News.
+- For Business/Finance: Bloomberg, Reuters, CNBC, Financial Times, Mint, Economic Times.
+
+When using the `search_web` tool for news, make MULTIPLE search queries to triangulate coverage. For example, if asked for "top 10 news in India", issue at least 2-3 separate search queries like "India top news today", "India breaking news today", "India latest headlines" to gather comprehensive results from different providers. Then synthesize the results into a unified, well-structured response with source attribution.
+
+When using `read_rss`, try multiple RSS feed URLs from different providers to ensure broad coverage. If one feed returns a 403 error, immediately try another provider's feed URL.
+
+ALWAYS include the source name and publication time alongside each news item."""
         if len(tools_to_use) == 0:
             tools_to_use = None
 
@@ -214,7 +236,7 @@ async def chat_multi(req: ChatRequest, request: Request):
 
     try:
         scraped_data = []
-        max_iterations = 3
+        max_iterations = 5
         
         for iteration in range(max_iterations):
             # On the last iteration, disable tools to force a final text answer
