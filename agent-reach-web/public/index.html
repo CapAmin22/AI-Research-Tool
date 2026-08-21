@@ -249,6 +249,9 @@
         async function handleLogin() {
             const e = document.getElementById('auth-email').value;
             const p = document.getElementById('auth-pass').value;
+            if (!e || !p) { document.getElementById('auth-error').innerText = "Please enter both email and password."; return; }
+            
+            document.getElementById('auth-error').innerText = "Signing in...";
             const { data, error } = await sb.auth.signInWithPassword({ email: e, password: p });
             if (error) document.getElementById('auth-error').innerText = error.message;
             else { userSession = data.session; document.getElementById('auth-overlay').style.display = 'none'; initApp(); }
@@ -257,9 +260,22 @@
         async function handleSignup() {
             const e = document.getElementById('auth-email').value;
             const p = document.getElementById('auth-pass').value;
+            if (!e || !p) { document.getElementById('auth-error').innerText = "Please enter both email and password."; return; }
+            
+            document.getElementById('auth-error').innerText = "Creating account...";
             const { data, error } = await sb.auth.signUp({ email: e, password: p });
             if (error) document.getElementById('auth-error').innerText = error.message;
-            else { alert("Signup successful! You can now log in."); }
+            else { 
+                // Since email confirmation is disabled, they might be logged in immediately
+                if (data.session) {
+                    userSession = data.session;
+                    document.getElementById('auth-overlay').style.display = 'none';
+                    initApp();
+                } else {
+                    alert("Signup successful! You can now log in."); 
+                    document.getElementById('auth-error').innerText = "";
+                }
+            }
         }
 
         async function handleLogout() {
