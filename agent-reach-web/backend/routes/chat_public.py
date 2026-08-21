@@ -83,11 +83,18 @@ PUBLIC_TOOLS = [
 
 @router.post("/{channel}")
 async def chat_public(channel: str, req: ChatRequest):
+    # Fully implemented channels
+    ACTIVE_CHANNELS = ["youtube", "read webpage", "rss/atom", "web search", "github", "podcast transcription"]
+    # Social channels — auth required, not fully wired yet
+    COMING_SOON_CHANNELS = ["twitter / x", "reddit", "facebook", "instagram"]
+    
     # Route only specific public channels here. LinkedIn is handled in chat_linkedin.py
-    if channel not in ["youtube", "read webpage", "rss/atom", "web search"]:
-        # If it's a channel we don't have python wrappers for yet, return generic response
-        if channel != "linkedin":
-            return {"reply": f"The {channel} agent is not fully implemented yet.", "data": []}
+    if channel == "linkedin":
+        pass  # handled by chat_linkedin.py
+    elif channel in COMING_SOON_CHANNELS:
+        return {"reply": f"The **{channel.title()}** research agent is coming soon! Please configure your credentials in the Settings tab to prepare for when it launches.", "data": []}
+    elif channel not in ACTIVE_CHANNELS:
+        return {"reply": f"The {channel} agent is not available.", "data": []}
             
     client = get_nvidia_client()
     

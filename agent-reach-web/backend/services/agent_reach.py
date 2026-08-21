@@ -269,20 +269,19 @@ def _parse_doctor_output(raw: str) -> list[Channel]:
     translations = {
         "GitHub 仓库和代码": ("GitHub", "Search repositories, code, and developer profiles."),
         "YouTube 视频和字幕": ("YouTube", "Fetch video metadata, transcripts, and subtitles."),
-        "V2EX 节点、主题与回复": ("V2EX", "Browse topics and replies on the V2EX tech forum."),
         "RSS/Atom 订阅源": ("RSS/Atom", "Read blog and news feeds from any RSS source."),
         "全网语义搜索": ("Web Search", "Search the internet for any topic in real time."),
         "任意网页": ("Read Webpage", "Read and extract text content from any public URL."),
-        "B站视频、字幕和搜索": ("Bilibili", "Search videos and subtitles on Bilibili."),
         "Twitter/X 推文": ("Twitter / X", "Search and read tweets and trending topics."),
         "Reddit 帖子和评论": ("Reddit", "Read posts, comments, and community discussions."),
         "Facebook 帖子、主页和群组": ("Facebook", "Access public posts, pages, and group content."),
         "Instagram 用户、主页和指定用户帖子": ("Instagram", "View public profiles and post content."),
-        "小红书笔记": ("Xiaohongshu", "Search notes and posts on Xiaohongshu (RedNote)."),
-        "小宇宙播客转文字": ("Xiaoyuzhou Podcast", "Transcribe podcast episodes into searchable text."),
-        "雪球股票行情与社区动态": ("Xueqiu", "Fetch stock quotes and financial community posts."),
+        "小宇宙播客转文字": ("Podcast Transcription", "Transcribe podcast episodes into searchable text."),
         "LinkedIn 职业社交": ("LinkedIn", "Look up professional profiles and career data."),
     }
+
+    # Channels to hide from the dashboard (China-centric, not useful for global users)
+    HIDDEN_CHANNELS = {"V2EX", "Bilibili", "Xiaohongshu", "Xueqiu", "XiaoHongShu"}
 
     for line in cleaned.splitlines():
         stripped = line.strip()
@@ -318,13 +317,22 @@ def _parse_doctor_output(raw: str) -> list[Channel]:
         
 
         # Apply translation if found
+        translated = False
         for zh_key, (en_name, en_desc) in translations.items():
             if zh_key in name_part:
                 name_part = en_name
                 if not description:  # Only override if it wasn't parsed properly
                     description = en_desc
                 found_channels.add(zh_key)
+                translated = True
                 break
+
+        # Skip hidden China-centric channels
+        if name_part in HIDDEN_CHANNELS:
+            continue
+        # Also skip any Chinese channel names that weren't in our translation map
+        if not translated and any('\u4e00' <= c <= '\u9fff' for c in name_part):
+            continue
 
         # Extract hint text (after period or colon) if it wasn't translated
         hint = ""

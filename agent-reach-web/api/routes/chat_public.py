@@ -92,6 +92,20 @@ PUBLIC_TOOLS = [
                 "required": ["query"],
             },
         },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "podcast_transcribe",
+            "description": "Transcribe a podcast episode from a URL into searchable text. Works with YouTube, Spotify embeds, and direct audio URLs.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "url": {"type": "string", "description": "The podcast episode URL"}
+                },
+                "required": ["url"],
+            },
+        },
     }
 ]
 
@@ -128,9 +142,18 @@ async def execute_tool_on_vm(tool_name: str, args: dict, vault_cookies: str = ""
 @router.post("/{channel}")
 async def chat_public(channel: str, req: ChatRequest, request: Request):
     vault_cookies = request.headers.get("x-vault-cookies", "")
-    if channel not in ["youtube", "read webpage", "rss/atom", "web search"]:
-        if channel != "linkedin":
-            return {"reply": f"The {channel} agent is not fully implemented yet.", "data": []}
+    
+    # Fully implemented channels
+    ACTIVE_CHANNELS = ["youtube", "read webpage", "rss/atom", "web search", "github", "podcast transcription"]
+    # Social channels — auth required, coming soon
+    COMING_SOON_CHANNELS = ["twitter / x", "reddit", "facebook", "instagram"]
+    
+    if channel == "linkedin":
+        pass  # handled by chat_linkedin.py
+    elif channel in COMING_SOON_CHANNELS:
+        return {"reply": f"The **{channel.title()}** research agent is coming soon! Please configure your credentials in the Settings tab to prepare for when it launches.", "data": []}
+    elif channel not in ACTIVE_CHANNELS:
+        return {"reply": f"The {channel} agent is not available.", "data": []}
             
     nvidia_client = get_nvidia_client()
     

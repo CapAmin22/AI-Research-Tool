@@ -74,6 +74,38 @@ async def execute_tool(req: ToolExecutionRequest, x_vault_cookies: str = Header(
             res = await agent_reach.read_rss(args["url"], limit=10)
             return {"output": json.dumps(res, indent=2)}
             
+        elif tool_name == "search_web":
+            try:
+                from duckduckgo_search import DDGS
+                results = DDGS().text(args.get("query", ""), max_results=5)
+                if not results:
+                    return {"output": "Search returned no results."}
+                return {"output": json.dumps(results, indent=2)}
+            except Exception as e:
+                return {"output": f"Search error: {str(e)}"}
+            
+        elif tool_name == "podcast_transcribe":
+            # Use yt-dlp to extract subtitles/transcript from a podcast or audio URL
+            podcast_url = args.get("url", "")
+            try:
+                res = subprocess.run(
+                    ["yt-dlp", "--write-auto-sub", "--skip-download", "--sub-lang", "en",
+                     "--print", "%(subtitles)j", podcast_url],
+                    capture_output=True, text=True, timeout=120
+                )
+                if res.returncode == 0 and res.stdout.strip():
+                    return {"output": res.stdout.strip()}
+                # Fallback: just get info
+                res2 = subprocess.run(
+                    ["yt-dlp", "-j", podcast_url],
+                    capture_output=True, text=True, timeout=120
+                )
+                if res2.returncode == 0:
+                    return {"output": res2.stdout.strip()}
+                return {"output": f"Could not transcribe podcast. yt-dlp error: {res.stderr}"}
+            except Exception as e:
+                return {"output": f"Podcast transcription error: {str(e)}"}
+            
         else:
             raise HTTPException(status_code=400, detail=f"Unknown tool: {tool_name}")
             

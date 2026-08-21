@@ -225,8 +225,8 @@
                 <p style="color: var(--text-muted); font-size: 0.9rem;">Configure your keys and cookies here. Once saved, they are stored securely on your server.</p>
                 
                 <div style="margin-top: 1.5rem;">
-                    <h4 style="margin-bottom: 0.5rem;">Groq API Key (Powers AI Research Agents)</h4>
-                    <input type="password" id="set-groq" placeholder="gsk_...">
+                    <h4 style="margin-bottom: 0.5rem;">NVIDIA API Key (Powers AI Research Agents)</h4>
+                    <input type="password" id="set-groq" placeholder="nvapi-...">
                 </div>
 
                 <div style="margin-top: 1.5rem;">
@@ -300,24 +300,23 @@
             }
         }
 
-        // --- Channel Info Map (Pure English) ---
+        // --- Channel Info Map (Global English Channels Only) ---
         const CHANNEL_INFO = {
-            'github':      { name: 'GitHub',        desc: 'Search repositories, code, and developer profiles.',     use: 'Research open-source projects and codebases' },
-            'youtube':     { name: 'YouTube',       desc: 'Fetch video metadata, transcripts, and subtitles.',       use: 'Analyze video content and extract insights' },
-            'web search':  { name: 'Web Search',    desc: 'Search the internet for any topic in real time.',         use: 'Find articles, news, and general information' },
-            'read webpage':{ name: 'Read Webpage',  desc: 'Read and extract text content from any public URL.',      use: 'Scrape and summarize web page content' },
-            'rss/atom':    { name: 'RSS / Atom',    desc: 'Read blog and news feeds from any RSS source.',           use: 'Monitor publications and track updates' },
-            'linkedin':    { name: 'LinkedIn',      desc: 'Look up professional profiles and career data.',          use: 'Research people, companies, and job markets' },
-            'twitter / x': { name: 'Twitter / X',   desc: 'Search and read tweets and trending topics.',             use: 'Track discussions and public sentiment' },
-            'reddit':      { name: 'Reddit',        desc: 'Read posts, comments, and community discussions.',        use: 'Explore community opinions and niche topics' },
-            'facebook':    { name: 'Facebook',      desc: 'Access public posts, pages, and group content.',          use: 'Research public social media activity' },
-            'instagram':   { name: 'Instagram',     desc: 'View public profiles and post content.',                  use: 'Research influencer and brand activity' },
-            'v2ex':        { name: 'V2EX Forum',    desc: 'Browse topics and replies on the V2EX tech forum.',       use: 'Research developer community discussions' },
-            'bilibili':    { name: 'Bilibili',      desc: 'Search videos and subtitles on Bilibili.',                use: 'Research video content on Bilibili' },
-            'xiaohongshu': { name: 'Xiaohongshu',   desc: 'Search notes and posts on Xiaohongshu (RedNote).',       use: 'Research lifestyle and consumer trends' },
-            'xiaoyuzhou podcast': { name: 'Podcast Transcription', desc: 'Transcribe podcast episodes into text.', use: 'Convert audio content to searchable text' },
-            'xueqiu':      { name: 'Xueqiu Finance',desc: 'Fetch stock quotes and financial community posts.',      use: 'Research market sentiment and stock data' },
+            'github':                { name: 'GitHub',                 desc: 'Search repositories, code, and developer profiles.',                use: 'Research open-source projects and codebases' },
+            'youtube':               { name: 'YouTube',                desc: 'Fetch video metadata, transcripts, and subtitles.',                 use: 'Analyze video content and extract insights' },
+            'web search':            { name: 'Web Search',             desc: 'Search the internet for any topic in real time.',                   use: 'Find articles, news, and general information' },
+            'read webpage':          { name: 'Read Webpage',           desc: 'Read and extract text content from any public URL.',                use: 'Scrape and summarize web page content' },
+            'rss/atom':              { name: 'RSS / Atom',             desc: 'Read blog and news feeds from any RSS source.',                     use: 'Monitor publications and track updates' },
+            'podcast transcription': { name: 'Podcast Transcription',  desc: 'Transcribe podcast episodes into searchable text.',                 use: 'Convert audio content to searchable research notes' },
+            'linkedin':              { name: 'LinkedIn',               desc: 'Look up professional profiles and career data.',                    use: 'Research people, companies, and job markets' },
+            'twitter / x':           { name: 'Twitter / X',            desc: 'Search and read tweets and trending topics.',                       use: 'Track discussions and public sentiment' },
+            'reddit':                { name: 'Reddit',                 desc: 'Read posts, comments, and community discussions.',                  use: 'Explore community opinions and niche topics' },
+            'facebook':              { name: 'Facebook',               desc: 'Access public posts, pages, and group content.',                    use: 'Research public social media activity' },
+            'instagram':             { name: 'Instagram',              desc: 'View public profiles and post content.',                            use: 'Research influencer and brand activity' },
         };
+
+        // Channels to hide (China-centric, not useful for global users)
+        const HIDDEN_CHANNELS = new Set(['v2ex', 'bilibili', 'xiaohongshu', 'xueqiu', 'xiaoyuzhou podcast', 'v2ex forum', 'xueqiu finance']);
 
         function resolveChannel(ch) {
             const key = (ch.name || '').toLowerCase().trim();
@@ -343,6 +342,11 @@
                 let html = '';
                 data.channels.forEach(ch => {
                     const resolved = resolveChannel(ch);
+                    const key = resolved.name.toLowerCase().trim();
+                    
+                    // Skip hidden Chinese channels
+                    if (HIDDEN_CHANNELS.has(key)) return;
+                    
                     let badgeClass = 'warn';
                     let badgeText = 'NEEDS SETUP';
                     if (resolved.status === 'ok') { badgeClass = 'ok'; badgeText = 'ACTIVE'; }
