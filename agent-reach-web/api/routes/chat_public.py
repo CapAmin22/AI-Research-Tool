@@ -201,6 +201,15 @@ async def chat_multi(req: ChatRequest, request: Request):
             req.session_id = res.data[0]["id"]
         except Exception as e:
             print(f"Failed to create session: {e}")
+            
+    # Fetch vault credentials from Supabase
+    if supabase and user_id:
+        try:
+            vault_res = supabase.table("user_vault").select("*").eq("user_id", user_id).execute()
+            if vault_res.data:
+                vault_cookies = json.dumps(vault_res.data[0])
+        except Exception as e:
+            print(f"Failed to fetch vault: {e}")
     
     # ALL channels are now active — social channels route through search_web with site-specific queries
     ALL_CHANNELS = [
