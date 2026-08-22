@@ -233,8 +233,12 @@ async def chat_multi(req: ChatRequest, request: Request):
                     tool_names_added.add(name)
                     break
     
-    # Universal Base Tools — always present UNLESS no-web chat is selected
-    if not no_web:
+    # Determine if any specialized agent is selected
+    special_agents = [c for c in selected_channels if c != "no-web chat"]
+    is_special_agent_active = len(special_agents) > 0
+    
+    # Universal Base Tools — always present UNLESS no-web chat is selected OR a special agent is active
+    if not no_web and not is_special_agent_active:
         add_tool("search_web")
         add_tool("read_webpage")
         add_tool("read_rss")
@@ -260,14 +264,21 @@ async def chat_multi(req: ChatRequest, request: Request):
         tools_to_use.append(MEMORY_TOOL)
     
     # Channel-specific tools
-    if "youtube" in selected_channels and not no_web:
+    if "youtube" in selected_channels:
         add_tool("youtube_info")
         add_tool("youtube_subtitles")
-    if "podcast transcription" in selected_channels and not no_web:
+    if "podcast transcription" in selected_channels:
         add_tool("podcast_transcribe")
     if "linkedin" in selected_channels:
         tools_to_use.extend(LINKEDIN_TOOLS)
-    # twitter, reddit, facebook, instagram → all handled via search_web with site: queries
+    if "twitter / x" in selected_channels:
+        tools_to_use.append({"type": "function", "function": {"name": "search_twitter", "description": "Search Twitter/X for posts or profiles.", "parameters": {"type": "object", "properties": {"query": {"type": "string"}}, "required": ["query"]}}})
+    if "reddit" in selected_channels:
+        tools_to_use.append({"type": "function", "function": {"name": "search_reddit", "description": "Search Reddit for posts or subreddits.", "parameters": {"type": "object", "properties": {"query": {"type": "string"}}, "required": ["query"]}}})
+    if "facebook" in selected_channels:
+        tools_to_use.append({"type": "function", "function": {"name": "search_facebook", "description": "Search Facebook for posts or pages.", "parameters": {"type": "object", "properties": {"query": {"type": "string"}}, "required": ["query"]}}})
+    if "instagram" in selected_channels:
+        tools_to_use.append({"type": "function", "function": {"name": "search_instagram", "description": "Search Instagram for posts or profiles.", "parameters": {"type": "object", "properties": {"query": {"type": "string"}}, "required": ["query"]}}})
             
     nvidia_client = get_nvidia_client()
     
@@ -469,8 +480,11 @@ ALWAYS include the source name, publication time, and a clickable URL alongside 
                         tool_output = "Fact saved to long-term memory successfully." if success else "Failed to save to memory (OpenAI API key missing?)."
                     except Exception as e:
                         tool_output = f"Error saving memory: {e}"
-                elif tool_name in ["get_person_profile"]:
+                elif tool_name in ["get_person_profile", "search_linkedin_jobs", "search_linkedin_posts", "get_company_profile", "send_linkedin_connection", "send_linkedin_message"]:
                     tool_output = await execute_tool_on_vm(f"linkedin.{tool_name}", args, vault_cookies)
+                elif tool_name in ["search_twitter", "search_reddit", "search_facebook", "search_instagram"]:
+                    prefix = tool_name.split("_")[1] # e.g. "twitter"
+                    tool_output = await execute_tool_on_vm(f"{prefix}.{tool_name}", args, vault_cookies)
                 else:
                     tool_output = await execute_tool_on_vm(tool_name, args, vault_cookies)
                     
