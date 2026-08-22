@@ -307,6 +307,8 @@ async def chat_multi(req: ChatRequest, request: Request):
         special_channels = [c.title() for c in selected_channels if c != "no-web chat"]
         channels_str = ", ".join(special_channels) if special_channels else "Web Search, Reading, and RSS"
         
+        if "linkedin" in selected_channels:
+            social_instructions += "\n\nLINKEDIN RESEARCH: You have access to specialized LinkedIn tools: `search_jobs`, `get_person_profile`, `search_posts`, `get_company_employees`, `connect_with_person`, `send_message`, `track_hashtag_trends`, `extract_post_engagements`, and `save_linkedin_intelligence`. DO NOT attempt to use 'search_linkedin_posts' or 'search_linkedin_jobs' as those are deprecated. Use ONLY the exact tool names provided in this list."
         if "reddit" in selected_channels:
             social_instructions += "\n\nREDDIT RESEARCH: Use `search_web` with queries like 'site:reddit.com <topic>' to find Reddit discussions, threads, and community opinions. Use `read_webpage` to read specific Reddit thread URLs for deeper context."
         if "twitter / x" in selected_channels:
@@ -480,7 +482,20 @@ ALWAYS include the source name, publication time, and a clickable URL alongside 
                         tool_output = "Fact saved to long-term memory successfully." if success else "Failed to save to memory (OpenAI API key missing?)."
                     except Exception as e:
                         tool_output = f"Error saving memory: {e}"
-                elif tool_name in ["get_person_profile", "search_linkedin_jobs", "search_linkedin_posts", "get_company_profile", "send_linkedin_connection", "send_linkedin_message"]:
+                elif tool_name == "save_linkedin_intelligence" and supabase and user_id:
+                    try:
+                        from api.utils.rag import store_document
+                        # Create a payload to represent the intelligence
+                        content_to_store = f"[{args.get('category', 'LinkedIn Intelligence')}]\\n{args.get('data', '')}"
+                        success = await store_document(
+                            content=content_to_store,
+                            metadata={"category": args.get("category", ""), "source": "linkedin_agent"},
+                            token=access_token
+                        )
+                        tool_output = "Intelligence successfully saved to Supabase vector memory." if success else "Failed to save intelligence to Supabase."
+                    except Exception as e:
+                        tool_output = f"Error saving intelligence: {e}"
+                elif tool_name in ["get_person_profile", "search_jobs", "search_posts", "track_hashtag_trends", "extract_post_engagements", "get_company_employees", "connect_with_person", "send_message"]:
                     tool_output = await execute_tool_on_vm(f"linkedin.{tool_name}", args, vault_cookies)
                 elif tool_name in ["search_twitter", "search_reddit", "search_facebook", "search_instagram"]:
                     prefix = tool_name.split("_")[1] # e.g. "twitter"

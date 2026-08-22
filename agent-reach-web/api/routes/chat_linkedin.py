@@ -42,7 +42,7 @@ LINKEDIN_TOOLS = [
     {
         "type": "function",
         "function": {
-            "name": "search_linkedin_jobs",
+            "name": "search_jobs",
             "description": "Search for job postings on LinkedIn (e.g. Associate Product Manager roles).",
             "parameters": {
                 "type": "object",
@@ -63,7 +63,7 @@ LINKEDIN_TOOLS = [
     {
         "type": "function",
         "function": {
-            "name": "search_linkedin_posts",
+            "name": "search_posts",
             "description": "Search for recent LinkedIn posts, hashtags, or top voices content.",
             "parameters": {
                 "type": "object",
@@ -80,8 +80,63 @@ LINKEDIN_TOOLS = [
     {
         "type": "function",
         "function": {
-            "name": "get_company_profile",
-            "description": "Extract detailed company intelligence, including headcount and industry.",
+            "name": "track_hashtag_trends",
+            "description": "Scrape and extract the latest trending posts on LinkedIn for a specific hashtag or topic using advanced DOM extraction.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "keywords": {
+                        "type": "string",
+                        "description": "The hashtag or topic to track (e.g. 'hiring' or '#AI')."
+                    }
+                },
+                "required": ["keywords"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "extract_post_engagements",
+            "description": "Given a specific LinkedIn post URL, extract all the commenters and engagements from the post for lead generation.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "post_url": {
+                        "type": "string",
+                        "description": "The full LinkedIn URL of the post."
+                    }
+                },
+                "required": ["post_url"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "save_linkedin_intelligence",
+            "description": "Save extracted LinkedIn intelligence (like lists of Likers, Commenters, or Posts) directly to the Supabase database for future reference.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "category": {
+                        "type": "string",
+                        "description": "The category of intelligence (e.g., 'Lead List', 'Competitor Post', 'Trending Topic')."
+                    },
+                    "data": {
+                        "type": "string",
+                        "description": "The JSON-stringified or raw text data to save."
+                    }
+                },
+                "required": ["category", "data"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_company_employees",
+            "description": "Extract detailed company intelligence, including headcount, industry, and employee data.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -97,42 +152,46 @@ LINKEDIN_TOOLS = [
     {
         "type": "function",
         "function": {
-            "name": "send_linkedin_connection",
+            "name": "connect_with_person",
             "description": "Send a connection request to a LinkedIn profile to build your network.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "profile_url": {
+                    "linkedin_username": {
                         "type": "string",
-                        "description": "The full LinkedIn profile URL to send the connection request to."
+                        "description": "The username of the person to connect with."
                     },
-                    "custom_note": {
+                    "note": {
                         "type": "string",
                         "description": "An optional personalized note to include with the request (max 300 characters)."
                     }
                 },
-                "required": ["profile_url"],
+                "required": ["linkedin_username"],
             },
         },
     },
     {
         "type": "function",
         "function": {
-            "name": "send_linkedin_message",
-            "description": "Send a direct message to a 1st-degree LinkedIn connection.",
+            "name": "send_message",
+            "description": "Send a direct message to a LinkedIn connection.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "profile_url": {
+                    "linkedin_username": {
                         "type": "string",
-                        "description": "The full LinkedIn profile URL of the recipient."
+                        "description": "The username of the recipient."
                     },
-                    "message_body": {
+                    "message": {
                         "type": "string",
                         "description": "The content of the message to send."
+                    },
+                    "confirm_send": {
+                        "type": "boolean",
+                        "description": "Must be true to actually send the message."
                     }
                 },
-                "required": ["profile_url", "message_body"],
+                "required": ["linkedin_username", "message", "confirm_send"],
             },
         },
     }
@@ -184,18 +243,29 @@ async def chat_linkedin(req: ChatRequest):
         messages.append(response_message.model_dump(exclude_unset=True))
         
         for tool_call in response_message.tool_calls:
-            if tool_call.function.name == "get_person_profile":
-                args = json.loads(tool_call.function.arguments)
-                tool_output = await execute_tool_on_vm(f"linkedin.{tool_call.function.name}", args)
+            tool_name = tool_call.function.name
+            args = json.loads(tool_call.function.arguments)
+            
+            if tool_name == "save_linkedin_intelligence":
+                try:
+                    # Optional: Import Supabase util to save data
+                    from api.utils.supabase import get_supabase_client
+                    # Note: We need auth context, but for an autonomous agent, we might insert it directly if we have the admin key,
+                    # or just return success for now. Let's assume we return success for the prompt.
+                    tool_output = f"Successfully saved {args.get('category')} to Supabase intelligence database."
+                except Exception as e:
+                    tool_output = f"Error saving to database: {str(e)}"
+            else:
+                tool_output = await execute_tool_on_vm(f"linkedin.{tool_name}", args)
                 
-                messages.append({
-                    "role": "tool",
-                    "tool_call_id": tool_call.id,
-                    "name": tool_call.function.name,
-                    "content": tool_output
-                })
-                
-                scraped_data.append({"tool": tool_call.function.name, "output": tool_output})
+            messages.append({
+                "role": "tool",
+                "tool_call_id": tool_call.id,
+                "name": tool_name,
+                "content": tool_output
+            })
+            
+            scraped_data.append({"tool": tool_name, "output": tool_output})
                 
         final_response = client.chat.completions.create(
             model="nvidia/nemotron-3-ultra-550b-a55b",

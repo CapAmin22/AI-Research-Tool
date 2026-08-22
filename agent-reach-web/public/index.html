@@ -649,6 +649,62 @@
                 Object.keys(CHANNEL_INFO).forEach(k => { if (CHANNEL_INFO[k].val === n) n = CHANNEL_INFO[k].name; });
                 t.innerText = n;
             } else { t.innerText = selectedChannels.length + ' Agents'; }
+            
+            if (selectedChannels.includes('linkedin') && !window.linkedInIntroShown) {
+                showLinkedInIntro();
+                window.linkedInIntroShown = true;
+            }
+        }
+
+        function showLinkedInIntro() {
+            const hist = document.getElementById('chat-history');
+            if (!hist) return;
+            const introHtml = `
+                <div style="background: rgba(138,180,248,0.05); border: 1px solid rgba(138,180,248,0.2); border-radius: 12px; padding: 1.5rem; margin-top: 0.5rem;">
+                    <h3 style="margin-top: 0; color: #8ab4f8; display: flex; align-items: center; gap: 8px;">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-1.85 0-2.6 1.05-3 1.63v-1.4h-2.67v8.33h2.67v-4.59c0-.47.09-.94.23-1.28.37-.93 1.25-1.9 2.7-1.9 1.9 0 2.66 1.45 2.66 3.58v4.25h2.67m-11.23 0V8.16H4.6v10.34h2.67M5.9 7A1.55 1.55 0 0 0 7.45 5.5 1.55 1.55 0 0 0 5.9 4a1.5 1.5 0 0 0-1.5 1.5A1.55 1.55 0 0 0 5.9 7Z"/></svg>
+                        LinkedIn Agent Initialized
+                    </h3>
+                    <p style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 1rem;">I have access to 9 specialized tools to autonomously navigate, scrape, and engage on LinkedIn. Here is what I can do:</p>
+                    
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                        <div>
+                            <h4 style="margin: 0 0 0.5rem 0; color: #fff; font-size: 0.85rem;">🔍 Data & Intent Mining</h4>
+                            <ul style="margin: 0; padding-left: 1.2rem; font-size: 0.82rem; color: var(--text-secondary); line-height: 1.5;">
+                                <li><strong>track_hashtag_trends:</strong> Find organic viral posts for any topic.</li>
+                                <li><strong>extract_post_engagements:</strong> Scrape likers/commenters from a viral post.</li>
+                                <li><strong>search_posts / search_jobs:</strong> Standard querying for posts and jobs.</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h4 style="margin: 0 0 0.5rem 0; color: #fff; font-size: 0.85rem;">🏢 Profiles & Companies</h4>
+                            <ul style="margin: 0; padding-left: 1.2rem; font-size: 0.82rem; color: var(--text-secondary); line-height: 1.5;">
+                                <li><strong>get_person_profile:</strong> Extract full work history and skills.</li>
+                                <li><strong>get_company_employees:</strong> Map company headcount and structure.</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h4 style="margin: 0 0 0.5rem 0; color: #fff; font-size: 0.85rem;">🤝 Outreach & Automation</h4>
+                            <ul style="margin: 0; padding-left: 1.2rem; font-size: 0.82rem; color: var(--text-secondary); line-height: 1.5;">
+                                <li><strong>connect_with_person:</strong> Send automated connection requests.</li>
+                                <li><strong>send_message:</strong> DM your 1st-degree connections.</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h4 style="margin: 0 0 0.5rem 0; color: #fff; font-size: 0.85rem;">🧠 Long-Term Memory</h4>
+                            <ul style="margin: 0; padding-left: 1.2rem; font-size: 0.82rem; color: var(--text-secondary); line-height: 1.5;">
+                                <li><strong>save_linkedin_intelligence:</strong> Persist scraped leads directly into your Supabase RAG database.</li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.1); font-size: 0.8rem; color: var(--text-secondary);">
+                        <strong>Try asking:</strong> <em>"Find trending posts about #AI, extract the commenters, and save them to my intelligence database."</em>
+                    </div>
+                </div>
+            `;
+            hist.innerHTML += `<div class="msg-row agent-row"><div class="msg-content-agent">${introHtml}</div></div>`;
+            hist.scrollTop = hist.scrollHeight;
         }
 
         async function loadChannelStatuses() {
