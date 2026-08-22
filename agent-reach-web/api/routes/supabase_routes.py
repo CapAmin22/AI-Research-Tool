@@ -103,26 +103,25 @@ async def validate_credential(data: ValidateCredRequest, request: Request):
         async with httpx.AsyncClient(timeout=15.0) as client:
             
             if cred_type == "linkedin":
-                # Test li_at by hitting LinkedIn's own API
+                # Test li_at by checking if LinkedIn feed page loads (redirects to login if invalid)
                 resp = await client.get(
-                    "https://www.linkedin.com/voyager/api/me",
+                    "https://www.linkedin.com/feed/",
                     headers={
                         "Cookie": f"li_at={value}",
-                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-                        "csrf-token": "ajax:0000000000000000000",
-                        "x-li-lang": "en_US",
-                        "x-restli-protocol-version": "2.0.0",
-                    }
+                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                    },
+                    follow_redirects=False
                 )
+                # 200 = logged in and viewing feed. 302/303 to /login = invalid cookie.
                 if resp.status_code == 200:
-                    try:
-                        profile = resp.json()
-                        name = profile.get("miniProfile", {}).get("firstName", "Unknown")
-                        return {"valid": True, "message": f"✅ Valid — Authenticated as '{name}'"}
-                    except:
-                        return {"valid": True, "message": "✅ Valid — LinkedIn session is active"}
-                elif resp.status_code == 401 or resp.status_code == 403:
-                    return {"valid": False, "message": "❌ Invalid or expired — LinkedIn rejected this cookie"}
+                    return {"valid": True, "message": "✅ Valid — LinkedIn session is active and authenticated"}
+                elif resp.status_code in [301, 302, 303]:
+                    location = resp.headers.get("location", "")
+                    if "login" in location or "authwall" in location or "checkpoint" in location:
+                        return {"valid": False, "message": "❌ Invalid or expired — LinkedIn redirected to login"}
+                    else:
+                        # Redirect but not to login — could be valid
+                        return {"valid": True, "message": "✅ Valid — LinkedIn session appears active"}
                 else:
                     return {"valid": False, "message": f"❌ Unexpected response (HTTP {resp.status_code})"}
             
