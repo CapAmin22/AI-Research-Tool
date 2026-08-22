@@ -653,17 +653,15 @@
 
         async function loadChannelStatuses() {
             try {
-                const res = await fetch('/api/status/doctor');
-                const data = await res.json();
                 const el = document.getElementById('multi-select-dropdown');
                 el.innerHTML = '';
-                const sm = {};
-                if(data.channels) data.channels.forEach(ch => { sm[(ch.name||'').toLowerCase().trim()] = ch.status; });
-
-                const VERCEL_NATIVE = new Set(['no-web chat', 'reddit', 'twitter / x', 'instagram', 'facebook']);
+                
+                // Since we migrated to a multi-tenant architecture with Supabase Credential Vaults,
+                // agent readiness is determined per-user at runtime. We default to green for all 
+                // agents and rely on the Vault's "Test" buttons for actual credential validation.
                 Object.keys(CHANNEL_INFO).forEach(key => {
                     const info = CHANNEL_INFO[key];
-                    let icon = (key === 'no-web chat') ? '🚫' : (VERCEL_NATIVE.has(key) ? '🟢' : (sm[key] === 'ok' ? '🟢' : '🔴'));
+                    let icon = (key === 'no-web chat') ? '🚫' : '🟢';
                     el.innerHTML += `<label><input type="checkbox" value="${info.val}" onchange="handleChannelSelect()"> ${icon} ${info.name}</label>`;
                 });
                 handleChannelSelect();
