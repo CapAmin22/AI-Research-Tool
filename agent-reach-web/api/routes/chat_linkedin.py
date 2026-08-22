@@ -38,6 +38,103 @@ LINKEDIN_TOOLS = [
                 "required": ["linkedin_username"],
             },
         },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "search_linkedin_jobs",
+            "description": "Search for job postings on LinkedIn (e.g. Associate Product Manager roles).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "keywords": {
+                        "type": "string",
+                        "description": "The job title or keywords to search for."
+                    },
+                    "location": {
+                        "type": "string",
+                        "description": "The location for the job search (e.g. 'San Francisco, CA' or 'Remote'). Defaults to 'Worldwide' if omitted."
+                    }
+                },
+                "required": ["keywords"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "search_linkedin_posts",
+            "description": "Search for recent LinkedIn posts, hashtags, or top voices content.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "keywords": {
+                        "type": "string",
+                        "description": "The keywords, hashtag, or topic to search for in posts."
+                    }
+                },
+                "required": ["keywords"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_company_profile",
+            "description": "Extract detailed company intelligence, including headcount and industry.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "company_name": {
+                        "type": "string",
+                        "description": "The exact name or LinkedIn vanity name of the company."
+                    }
+                },
+                "required": ["company_name"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "send_linkedin_connection",
+            "description": "Send a connection request to a LinkedIn profile to build your network.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "profile_url": {
+                        "type": "string",
+                        "description": "The full LinkedIn profile URL to send the connection request to."
+                    },
+                    "custom_note": {
+                        "type": "string",
+                        "description": "An optional personalized note to include with the request (max 300 characters)."
+                    }
+                },
+                "required": ["profile_url"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "send_linkedin_message",
+            "description": "Send a direct message to a 1st-degree LinkedIn connection.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "profile_url": {
+                        "type": "string",
+                        "description": "The full LinkedIn profile URL of the recipient."
+                    },
+                    "message_body": {
+                        "type": "string",
+                        "description": "The content of the message to send."
+                    }
+                },
+                "required": ["profile_url", "message_body"],
+            },
+        },
     }
 ]
 
