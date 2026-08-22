@@ -110,6 +110,15 @@
         .vault-body { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; }
         .vault-body.open { max-height: 1200px; }
         .cred-hint { font-size: 0.7rem; color: var(--text-secondary); margin: 2px 0 6px; line-height: 1.4; font-style: italic; }
+        .cred-row { display: flex; gap: 6px; align-items: center; }
+        .cred-row input { flex: 1; }
+        .validate-btn { background: rgba(138,180,248,0.15); color: var(--accent); border: 1px solid transparent; padding: 0.45rem 0.5rem; border-radius: 8px; cursor: pointer; font-size: 0.72rem; font-family: var(--font); white-space: nowrap; font-weight: 500; transition: all 0.15s; }
+        .validate-btn:hover { border-color: var(--accent); }
+        .validate-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .cred-status { font-size: 0.72rem; margin-top: 4px; min-height: 16px; line-height: 1.3; }
+        .cred-status.valid { color: #34a853; }
+        .cred-status.invalid { color: #ea4335; }
+        .cred-status.checking { color: var(--accent); }
 
         /* ── Main Chat ── */
         .main-chat { flex: 1; display: flex; flex-direction: column; }
@@ -224,33 +233,55 @@
 
                     <div class="sidebar-group">
                         <h4>LinkedIn li_at</h4>
-                        <div class="cred-hint">Open LinkedIn → DevTools (F12) → Application → Cookies → linkedin.com → copy the <code>li_at</code> value.</div>
-                        <input type="password" id="set-li-at" placeholder="Paste li_at...">
+                        <div class="cred-hint">Open LinkedIn → DevTools (F12) → Application → Cookies → linkedin.com → copy <code>li_at</code>.</div>
+                        <div class="cred-row">
+                            <input type="password" id="set-li-at" placeholder="Paste li_at...">
+                            <button class="validate-btn" onclick="validateCred('linkedin','set-li-at','li-at-status')">Test</button>
+                        </div>
+                        <div class="cred-status" id="li-at-status"></div>
                     </div>
                     <div class="sidebar-group">
                         <h4>Twitter Auth Token</h4>
                         <div class="cred-hint">Open X.com → DevTools (F12) → Application → Cookies → x.com → copy <code>auth_token</code>.</div>
-                        <input type="password" id="set-tw-auth" placeholder="Paste auth_token...">
+                        <div class="cred-row">
+                            <input type="password" id="set-tw-auth" placeholder="Paste auth_token...">
+                            <button class="validate-btn" onclick="validateCred('twitter','set-tw-auth','tw-auth-status')">Test</button>
+                        </div>
+                        <div class="cred-status" id="tw-auth-status"></div>
                     </div>
                     <div class="sidebar-group">
                         <h4>Twitter CT0</h4>
-                        <div class="cred-hint">Same as above. Copy the <code>ct0</code> cookie value from x.com cookies.</div>
-                        <input type="password" id="set-tw-ct0" placeholder="Paste ct0...">
+                        <div class="cred-hint">Same as above. Copy the <code>ct0</code> cookie from x.com.</div>
+                        <div class="cred-row">
+                            <input type="password" id="set-tw-ct0" placeholder="Paste ct0...">
+                        </div>
                     </div>
                     <div class="sidebar-group">
                         <h4>Reddit Cookie</h4>
                         <div class="cred-hint">Open reddit.com → DevTools → Application → Cookies → copy <code>reddit_session</code>.</div>
-                        <input type="password" id="set-rdt" placeholder="Paste reddit_session...">
+                        <div class="cred-row">
+                            <input type="password" id="set-rdt" placeholder="Paste reddit_session...">
+                            <button class="validate-btn" onclick="validateCred('reddit','set-rdt','rdt-status')">Test</button>
+                        </div>
+                        <div class="cred-status" id="rdt-status"></div>
                     </div>
                     <div class="sidebar-group">
                         <h4>Instagram sessionid</h4>
                         <div class="cred-hint">Open instagram.com → DevTools → Application → Cookies → copy <code>sessionid</code>.</div>
-                        <input type="password" id="set-ig" placeholder="Paste sessionid...">
+                        <div class="cred-row">
+                            <input type="password" id="set-ig" placeholder="Paste sessionid...">
+                            <button class="validate-btn" onclick="validateCred('instagram','set-ig','ig-status')">Test</button>
+                        </div>
+                        <div class="cred-status" id="ig-status"></div>
                     </div>
                     <div class="sidebar-group">
                         <h4>Facebook Cookies</h4>
-                        <div class="cred-hint">Open facebook.com → DevTools → Application → Cookies → copy <code>c_user</code> and <code>xs</code>, separated by a semicolon.</div>
-                        <input type="password" id="set-fb" placeholder="Paste c_user;xs...">
+                        <div class="cred-hint">Open facebook.com → DevTools → Application → Cookies → copy <code>c_user</code> and <code>xs</code>, separated by semicolon.</div>
+                        <div class="cred-row">
+                            <input type="password" id="set-fb" placeholder="Paste c_user;xs...">
+                            <button class="validate-btn" onclick="validateCred('facebook','set-fb','fb-status')">Test</button>
+                        </div>
+                        <div class="cred-status" id="fb-status"></div>
                     </div>
 
                     <div style="margin-top:1rem;">
@@ -712,6 +743,23 @@
             } catch(e){}
         }
 
+        async function validateCred(credType, inputId, statusId) {
+            const val = document.getElementById(inputId).value.trim();
+            const statusEl = document.getElementById(statusId);
+            if (!val) { statusEl.className = 'cred-status invalid'; statusEl.innerText = 'Paste a value first.'; return; }
+            statusEl.className = 'cred-status checking'; statusEl.innerText = 'Validating...';
+            try {
+                const res = await fetch('/api/user/vault/validate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+                    body: JSON.stringify({ credential_type: credType, value: val })
+                });
+                const data = await res.json();
+                statusEl.className = data.valid ? 'cred-status valid' : 'cred-status invalid';
+                statusEl.innerText = data.message;
+            } catch(e) { statusEl.className = 'cred-status invalid'; statusEl.innerText = 'Validation request failed.'; }
+        }
+
         async function saveSettings() {
             const s = document.getElementById('settings-status');
             s.innerText='Saving to Supabase...'; s.style.color='var(--text-secondary)';
@@ -724,16 +772,21 @@
                 facebook_cookies: document.getElementById('set-fb').value||null
             };
             try {
-                await fetch('/api/user/vault', {
+                const resp = await fetch('/api/user/vault', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
                     body: JSON.stringify(p)
                 });
-                s.innerText='Saved securely!'; s.style.color='#34a853';
-                ['set-li-at','set-tw-auth','set-tw-ct0','set-rdt','set-ig','set-fb'].forEach(id=>document.getElementById(id).value='');
-                loadSettings();
+                const result = await resp.json();
+                if (result.success) {
+                    s.innerText='Saved securely!'; s.style.color='#34a853';
+                    ['set-li-at','set-tw-auth','set-tw-ct0','set-rdt','set-ig','set-fb'].forEach(id=>document.getElementById(id).value='');
+                    loadSettings();
+                } else {
+                    s.innerText='Error: ' + (result.detail || 'Unknown'); s.style.color='#ea4335';
+                }
                 setTimeout(()=>{ s.innerText=''; }, 3000);
-            } catch(e) { s.innerText='Error'; s.style.color='#ea4335'; }
+            } catch(e) { s.innerText='Error: ' + e.message; s.style.color='#ea4335'; }
         }
 
         initAuth();
