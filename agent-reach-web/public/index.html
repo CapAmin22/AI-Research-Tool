@@ -602,7 +602,14 @@
                 }
                 document.getElementById(lid).remove();
                 let html = '';
-                if (data.auth_required) { html = `<strong>Action Required:</strong> ${data.reply}`; }
+                if (data.auth_required) { 
+                    html = `
+                    <div style="background: rgba(234, 67, 53, 0.1); border-left: 4px solid #ea4335; padding: 12px; margin-bottom: 10px; border-radius: 4px;">
+                        <h4 style="margin: 0 0 5px 0; color: #ea4335;">⚠️ Session Expired</h4>
+                        <p style="margin: 0; font-size: 13px;">${data.reply || 'Your session cookie has expired. The agent cannot perform operations until it is updated.'}</p>
+                        <button onclick="toggleVault()" style="margin-top: 10px; background: #ea4335; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold;">Open Vault to Update Cookie</button>
+                    </div>`;
+                }
                 else if (data.reply) { html = marked.parse(data.reply); }
                 else { html = 'Error: No response.'; }
                 if (data.data && data.data.length > 0) {
@@ -764,7 +771,14 @@
                 document.getElementById(lid).remove();
 
                 let html = '';
-                if (data.auth_required) { html = `<strong>Action Required:</strong> ${data.reply}`; } 
+                if (data.auth_required) { 
+                    html = `
+                    <div style="background: rgba(234, 67, 53, 0.1); border-left: 4px solid #ea4335; padding: 12px; margin-bottom: 10px; border-radius: 4px;">
+                        <h4 style="margin: 0 0 5px 0; color: #ea4335;">⚠️ Session Expired</h4>
+                        <p style="margin: 0; font-size: 13px;">${data.reply || 'Your session cookie has expired. The agent cannot perform operations until it is updated.'}</p>
+                        <button onclick="toggleVault()" style="margin-top: 10px; background: #ea4335; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold;">Open Vault to Update Cookie</button>
+                    </div>`;
+                } 
                 else if (data.reply) { html = marked.parse(data.reply); } 
                 else { html = 'Error: No response.'; }
 
