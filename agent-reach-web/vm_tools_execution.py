@@ -25,7 +25,10 @@ def run_mcporter(tool_name: str, args: dict) -> str:
         for k, v in args.items():
             cmd.append(f"{k}={v}")
             
-        res = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+        env = os.environ.copy()
+        env["MCPORTER_CALL_TIMEOUT"] = "45000"
+            
+        res = subprocess.run(cmd, capture_output=True, text=True, timeout=55, env=env)
         
         if res.returncode != 0:
             return f"Error executing {tool_name}: {res.stderr}"

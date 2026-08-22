@@ -503,8 +503,8 @@ ALWAYS include the source name, publication time, and a clickable URL alongside 
                 else:
                     tool_output = await execute_tool_on_vm(tool_name, args, vault_cookies)
                     
-                    if "AUTH_REQUIRED" in tool_output:
-                        return {"auth_required": True, "reply": tool_output, "data": scraped_data}
+                if "AUTH_REQUIRED" in tool_output or "timed out after" in tool_output or "appears offline" in tool_output:
+                    return {"auth_required": True, "reply": "Your LinkedIn session has expired or timed out. Please open the Vault and paste a fresh li_at cookie.", "data": scraped_data}
                     
                 if len(tool_output) > 10000:
                     tool_output = tool_output[:10000] + "... [TRUNCATED]"
